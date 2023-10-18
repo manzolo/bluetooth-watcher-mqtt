@@ -28,7 +28,7 @@ class SentinelService : Service() {
     private fun starSentinelTask() {
         Log.d(TAG, "onSentinelStartCommand")
         val pref = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-        if (pref.getString("webserviceUrl", "").toString().isEmpty()) {
+        if (pref.getString("mqttUrl", "").toString().isEmpty()) {
             val intent = Intent(WebserviceEvents.ERROR)
             // You can also include some extra data.
             intent.putExtra("message", "No webservice url in settings")
