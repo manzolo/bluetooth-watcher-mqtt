@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Bluetooth volt watcher</string>
+    <string name="app_name">Bluetooth volt watcher mqtt</string>
     <string name="action_settings">Settings</string>
     <string name="title_activity_settings">Settings</string>
 
@@ -7,12 +7,10 @@
 
     <string name="dbBackup">Backup</string>
     <string name="dbRestore">Restore</string>
-    <string name="updateApp">Update App</string>
 
     <string name="triggerBluetoothService">Bluetooth Service</string>
     <string name="triggerLocationService">Location Service</string>
-    <string name="triggerWebserviceSendService">Webservice Send Data</string>
-    <string name="triggerRestartService">Restart App</string>
+    <string name="triggerMqttSendService">Send mqtt discovery devices</string>
 
     <string name="clearLog">Clear Log</string>
     <string name="enabledSetting">enabled</string>
@@ -25,11 +23,7 @@
     <string name="bluetoothServiceEverySeconds">bluetoothServiceEverySeconds</string>
     <string name="webserviceServiceEverySeconds">webserviceServiceEverySeconds</string>
     <string name="locationServiceEverySeconds">locationServiceEverySeconds</string>
-    <string name="updateServiceEverySeconds">updateServiceEverySeconds</string>
-    <string name="restartAppServiceEverySeconds">restartAppServiceEverySeconds</string>
     <string name="triggerMenuAction">Trigger action</string>
     <string name="databaseMenuAction">Database</string>
     <string name="utilityMenuAction">Utility</string>
-    <string name="updateMenuAction">Updates</string>
-    <string name="triggerAppUpdateSettingsService">Update settings</string>
 </resources>

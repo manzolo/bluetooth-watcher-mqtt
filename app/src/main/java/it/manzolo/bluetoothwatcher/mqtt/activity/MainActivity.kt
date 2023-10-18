@@ -1,6 +1,10 @@
 package it.manzolo.bluetoothwatcher.mqtt.activity
 
-import android.content.*
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.DialogInterface
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -15,11 +19,16 @@ import it.manzolo.bluetoothwatcher.mqtt.R
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseHelper
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseLog
 import it.manzolo.bluetoothwatcher.mqtt.device.getDeviceBatteryPercentage
-import it.manzolo.bluetoothwatcher.mqtt.enums.*
+import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.DatabaseEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.LocationEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.WebserviceEvents
 import it.manzolo.bluetoothwatcher.mqtt.error.UnCaughtExceptionHandler
 import it.manzolo.bluetoothwatcher.mqtt.log.BluetoothWatcherLog
 import it.manzolo.bluetoothwatcher.mqtt.log.MyRecyclerViewAdapter
 import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothService
+import it.manzolo.bluetoothwatcher.mqtt.service.DiscoveryService
 import it.manzolo.bluetoothwatcher.mqtt.service.LocationService
 import it.manzolo.bluetoothwatcher.mqtt.utils.Date
 import it.manzolo.bluetoothwatcher.mqtt.utils.Session
@@ -192,20 +201,30 @@ class MainActivity : AppCompatActivity() {
                 this.startActivity(intentSettings)
                 return true
             }
+
             R.id.action_trigger_bluetooth_service -> {
                 val serviceIntent = Intent(this, BluetoothService::class.java)
                 this.startService(serviceIntent)
                 return true
             }
+
+            R.id.action_trigger_mqtt_discovery_service -> {
+                val serviceIntent = Intent(this, DiscoveryService::class.java)
+                this.startService(serviceIntent)
+                return true
+            }
+
             R.id.action_trigger_location_service -> {
                 val serviceIntent = Intent(this, LocationService::class.java)
                 this.startService(serviceIntent)
                 return true
             }
+
             R.id.action_dbbackup -> {
                 showBackupDialog()
                 return true
             }
+
             R.id.action_dbrestore -> {
                 showRestoreDialog()
                 return true

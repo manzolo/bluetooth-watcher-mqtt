@@ -48,6 +48,10 @@
             android:label="MainJobService"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
+        <service
+            android:name="it.manzolo.bluetoothwatcher.mqtt.service.DiscoveryService"
+            android:label="DiscoveryService"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <service
             android:name="it.manzolo.bluetoothwatcher.mqtt.service.LocationService"
