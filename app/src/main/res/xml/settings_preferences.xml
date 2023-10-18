@@ -1,0 +1,82 @@
+<!--
+  ~ Copyright 2018 The app Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="Mqtt">
+        <EditTextPreference
+            app:dialogTitle="Enter a valid url"
+            app:key="mqttUrl"
+            app:summary="Enter mqtt url"
+            app:title="Mqtt url" />
+        <EditTextPreference
+            app:dialogTitle="Enter a valid Port"
+            app:key="mqttPort"
+            app:summary="Enter mqtt port"
+            app:title="Mqtt port" />
+        <EditTextPreference
+            app:dialogTitle="Enter username"
+            app:key="mqttUsername"
+            app:summary="Enter mqtt username"
+            app:title="Mqtt username" />
+        <EditTextPreference
+            app:dialogTitle="Enter password"
+            app:key="mqttPassword"
+            app:summary="Enter mqtt password"
+            app:title="Mqtt password" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Device">
+        <EditTextPreference
+            app:dialogTitle="Select devices address"
+            app:key="devices"
+            app:summary="Select device to watch, comma separated values"
+            app:title="Devices address" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Cron">
+        <EditTextPreference
+            app:dialogTitle="Select duration"
+            app:key="@string/bluetoothServiceEverySeconds"
+            app:summary="Set every seconds bluetooth service start"
+            app:title="Bluetooth scan" />
+
+        <EditTextPreference
+            app:dialogTitle="Select duration"
+            app:key="@string/locationServiceEverySeconds"
+            app:summary="Set every seconds location service start"
+            app:title="Location" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Switch">
+
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="@string/enabledSetting"
+            app:summary="Click to switch on or off"
+            app:title="Service enabled" />
+        <SwitchPreferenceCompat
+            app:defaultValue="false"
+            app:key="@string/debugApp"
+            app:summary="Click to switch on or off"
+            app:title="Debug" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>
