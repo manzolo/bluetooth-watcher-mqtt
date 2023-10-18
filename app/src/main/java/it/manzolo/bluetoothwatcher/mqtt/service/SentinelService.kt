@@ -31,7 +31,7 @@ class SentinelService : Service() {
         if (pref.getString("mqttUrl", "").toString().isEmpty()) {
             val intent = Intent(WebserviceEvents.ERROR)
             // You can also include some extra data.
-            intent.putExtra("message", "No webservice url in settings")
+            intent.putExtra("message", "No mqtt url in settings")
             applicationContext.sendBroadcast(intent)
             return
         }
