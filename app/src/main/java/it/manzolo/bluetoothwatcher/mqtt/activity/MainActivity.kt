@@ -34,6 +34,7 @@ import it.manzolo.bluetoothwatcher.mqtt.utils.Date
 import it.manzolo.bluetoothwatcher.mqtt.utils.Session
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
+import org.eclipse.paho.client.mqttv3.MqttException
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import org.json.JSONObject
@@ -161,7 +162,13 @@ class MainActivity : AppCompatActivity() {
                         client.publish(topic, message)
 
                         client.disconnect()
-                    } catch (e: Exception) {
+                    } catch (e: MqttException) {
+                        //Log.e(TAG, e.message)
+                        val dbIntent = Intent(DatabaseEvents.ERROR)
+                        // You can also include some extra data.
+                        dbIntent.putExtra("message", e.message)
+                        applicationContext.sendBroadcast(dbIntent)
+                    }catch (e: Exception) {
                         //Log.e(TAG, e.message)
                         val dbIntent = Intent(DatabaseEvents.ERROR)
                         // You can also include some extra data.
