@@ -15,7 +15,7 @@ import it.manzolo.bluetoothwatcher.mqtt.utils.Session
 
 class LocationService : Service() {
     companion object {
-        val TAG: String = LocationService::class.java.simpleName
+        //val TAG: String = LocationService::class.java.simpleName
         private const val LOCATION_INTERVAL = 1000
         private const val LOCATION_DISTANCE = 10f
     }
@@ -81,7 +81,7 @@ class LocationService : Service() {
     }
 
     inner class LocationListener(provider: String) : android.location.LocationListener {
-        var mLastLocation: Location = Location(provider)
+        private var mLastLocation: Location = Location(provider)
         override fun onLocationChanged(location: Location) {
             //Log.d(TAG, "onLocationChanged: $location")
             mLastLocation.set(location)
@@ -109,12 +109,9 @@ class LocationService : Service() {
             //Log.d(TAG, "onProviderEnabled: $provider")
         }
 
+        @Deprecated("Deprecated in Java")
         override fun onStatusChanged(provider: String, status: Int, extras: Bundle) {
             //Log.d(TAG, "onStatusChanged: $provider")
-        }
-
-        init {
-            //Log.d(TAG, "LocationListener $provider")
         }
     }
 }
