@@ -4,16 +4,19 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.preference.PreferenceManager
 import it.manzolo.bluetoothwatcher.mqtt.bluetooth.BluetoothClient
 import it.manzolo.bluetoothwatcher.mqtt.device.DebugData
 import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 class BluetoothService : Service() {
