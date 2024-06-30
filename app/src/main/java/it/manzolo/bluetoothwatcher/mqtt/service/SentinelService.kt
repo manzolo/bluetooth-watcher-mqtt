@@ -22,7 +22,7 @@ class SentinelService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onSentinelStartJob")
         starSentinelTask()
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private fun starSentinelTask() {

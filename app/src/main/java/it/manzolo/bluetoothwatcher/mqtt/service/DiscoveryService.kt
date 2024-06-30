@@ -39,7 +39,7 @@ class DiscoveryService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onDiscoveryStartJob")
         startDiscoveryTask()
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {

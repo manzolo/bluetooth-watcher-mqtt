@@ -32,7 +32,7 @@ class LocationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         //Log.d(TAG, "onLocationStartJob")
         startLocationTask()
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private fun startLocationTask() {
