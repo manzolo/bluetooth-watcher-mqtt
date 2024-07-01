@@ -1,10 +1,8 @@
 package it.manzolo.bluetoothwatcher.mqtt.activity
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.DialogInterface
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -19,11 +17,7 @@ import it.manzolo.bluetoothwatcher.mqtt.R
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseHelper
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseLog
 import it.manzolo.bluetoothwatcher.mqtt.device.getDeviceBatteryPercentage
-import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
-import it.manzolo.bluetoothwatcher.mqtt.enums.DatabaseEvents
-import it.manzolo.bluetoothwatcher.mqtt.enums.LocationEvents
-import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
-import it.manzolo.bluetoothwatcher.mqtt.enums.WebserviceEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.*
 import it.manzolo.bluetoothwatcher.mqtt.error.UnCaughtExceptionHandler
 import it.manzolo.bluetoothwatcher.mqtt.log.BluetoothWatcherLog
 import it.manzolo.bluetoothwatcher.mqtt.log.MyRecyclerViewAdapter
@@ -39,470 +33,345 @@ import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import org.json.JSONObject
 
-
 class MainActivity : AppCompatActivity() {
     companion object {
-        val TAG: String = MainActivity::class.java.simpleName
+        private const val PERMISSION_REQUEST_CODE = 0
+        private const val MAX_LOG_ITEMS = 16
+        private const val DEFAULT_LOG_ITEMS = 10
+        private const val MQTT_CLIENT_ID = "bluetooth_watcher"
     }
 
-    private val logList: ArrayList<BluetoothWatcherLog> = ArrayList()
-    private var recyclerView: RecyclerView? = null
-    val logViewAdapter = MyRecyclerViewAdapter(logList)
+    private val logList: ArrayList<BluetoothWatcherLog> = ArrayList(MAX_LOG_ITEMS)
+    private lateinit var recyclerView: RecyclerView
+    private lateinit var logViewAdapter: MyRecyclerViewAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (savedInstanceState == null) {
-            super.onCreate(savedInstanceState)
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        setSupportActionBar(findViewById(R.id.toolbar))
 
-            registerLocalBroadcast()
+        setupPermissions()
+        setupRecyclerView()
 
-            Thread.setDefaultUncaughtExceptionHandler(UnCaughtExceptionHandler(this))
+        logList.add(0, BluetoothWatcherLog(Date.now(), "System ready", MainEvents.INFO))
+        PreferenceManager.getDefaultSharedPreferences(applicationContext).edit()
+            .putBoolean("enabled", true).apply()
 
-            setContentView(R.layout.activity_main)
-            setSupportActionBar(findViewById(R.id.toolbar))
-
-            //Ask user for permission
-            val permissions = arrayOf(
-                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                android.Manifest.permission.ACCESS_COARSE_LOCATION,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-                android.Manifest.permission.BLUETOOTH_SCAN,
-            )
-            ActivityCompat.requestPermissions(this, permissions, 0)
-
-            //EventViewer
-            //Reference of RecyclerView
-            recyclerView = findViewById(R.id.myRecyclerView)
-            //Linear Layout Manager
-            val linearLayoutManager = LinearLayoutManager(this@MainActivity, RecyclerView.VERTICAL, false)
-            //Set Layout Manager to RecyclerView
-            recyclerView!!.layoutManager = linearLayoutManager
-            //Set adapter to RecyclerView
-            recyclerView!!.adapter = logViewAdapter
-
-            logList.add(0, BluetoothWatcherLog(Date.now(), "System ready", MainEvents.INFO))
-
-            //Service enabled by default
-            PreferenceManager.getDefaultSharedPreferences(applicationContext).edit().putBoolean("enabled", true).apply()
-
-        }
-
+        registerLocalBroadcast()
+        Thread.setDefaultUncaughtExceptionHandler(UnCaughtExceptionHandler(this))
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
     }
 
-    private val localBroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent?) {
-            when (intent?.action) {
-                MainEvents.BROADCAST -> {
-                    captureLog(intent.getStringExtra("message")!!, intent.getStringExtra("type")!!)
-                }
-                MainEvents.INFO -> {
-                    captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
-                }
-                MainEvents.ERROR -> {
-                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
-                }
-                BluetoothEvents.ERROR -> {
-                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
-                }
-                WebserviceEvents.ERROR -> {
-                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
-                }
-                WebserviceEvents.INFO -> {
-                    captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
-                }
-                BluetoothEvents.DATA_RETRIEVED -> {
-                    captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
-
-                    val device = intent.getStringExtra("device")!!
-                    val volt = intent.getStringExtra("volt")!!
-                    val temp = intent.getStringExtra("tempC")!!
-
-                    try {
-                        // Session and location retrieval (assuming these are managed elsewhere)
-                        val session = Session(applicationContext)
-                        val bp = getDeviceBatteryPercentage(applicationContext)
-
-                        // Prepare JSON payload
-                        val jsonObject = JSONObject().apply {
-                            put("voltage", volt)
-                            put("temperature", temp)
-                            put("tracker_battery", bp.toString())
-                            put("longitude", session.longitude)
-                            put("latitude", session.latitude)
-                        }
-
-                        // MQTT Client setup
-                        val mqttUrl = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                            .getString("mqttUrl", "") ?: ""
-                        val mqttPort = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                            .getString("mqttPort", "") ?: ""
-                        val userName = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                            .getString("mqttUsername", "") ?: ""
-                        val password = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                            .getString("mqttPassword", "")
-
-                        val brokerUrl = "tcp://$mqttUrl:$mqttPort"
-                        val topic = "${device.replace(":", "").lowercase()}/attributes"
-
-                        val client = MqttClient(brokerUrl, "bluetooth_watcher", MemoryPersistence())
-                        val options = MqttConnectOptions().apply {
-                            isCleanSession = true
-                            this.userName = userName // Setting userName property of MqttConnectOptions
-                            password?.let { setPassword(it.toCharArray()) }
-                        }
-
-                        // Connect to MQTT broker
-                        client.connect(options)
-
-                        // Publish message
-                        val message = MqttMessage(jsonObject.toString().toByteArray(Charsets.UTF_8))
-                        client.publish(topic, message)
-
-                        // Disconnect MQTT client
-                        client.disconnect()
-
-                    } catch (e: MqttException) {
-                        // Handle MQTT exceptions
-                        val dbIntent = Intent(DatabaseEvents.ERROR).apply {
-                            putExtra("message", "MQTT Exception: ${e.message}")
-                        }
-                        applicationContext.sendBroadcast(dbIntent)
-
-                    } catch (e: Exception) {
-                        // Handle other exceptions
-                        val dbIntent = Intent(DatabaseEvents.ERROR).apply {
-                            putExtra("message", "Exception: ${e.message}")
-                        }
-                        applicationContext.sendBroadcast(dbIntent)
-                    }
-                }
-                WebserviceEvents.DATA_SENT -> {
-                    captureLog("Data sent " + intent.getStringExtra("message"), MainEvents.INFO)
-                }
-                LocationEvents.LOCATION_CHANGED -> {
-                    captureLog("Obtain longitude:" + intent.getStringExtra("longitude")!! + " latitude:" + intent.getStringExtra("latitude")!!, MainEvents.INFO)
-                }
-                DatabaseEvents.ERROR -> {
-                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
-                }
-                MainEvents.DEBUG -> {
-                    //saveLog(intent.getStringExtra("message"), MainEvents.DEBUG)
-                    if (PreferenceManager.getDefaultSharedPreferences(applicationContext).getBoolean("debugApp", false)) {
-                        Toast.makeText(applicationContext, intent.getStringExtra("message"), Toast.LENGTH_LONG).show()
-                    }
-                    return
-                }
-            }
-            recyclerView!!.layoutManager?.scrollToPosition(0)
-            logViewAdapter.notifyItemInserted(0)
-        }
-    }
-
     override fun onOptionsItemSelected(menuItem: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         return when (menuItem.itemId) {
             R.id.action_settings -> {
-                val intentSettings = Intent(this, SettingsActivity::class.java)
-                this.startActivity(intentSettings)
-                return true
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
             }
 
             R.id.action_trigger_bluetooth_service -> {
-                val serviceIntent = Intent(this, BluetoothService::class.java)
-                this.startService(serviceIntent)
-                return true
+                startService(Intent(this, BluetoothService::class.java))
+                true
             }
 
             R.id.action_trigger_mqtt_discovery_service -> {
-                val serviceIntent = Intent(this, DiscoveryService::class.java)
-                this.startService(serviceIntent)
-                return true
+                startService(Intent(this, DiscoveryService::class.java))
+                true
             }
 
             R.id.action_trigger_location_service -> {
-                val serviceIntent = Intent(this, LocationService::class.java)
-                this.startService(serviceIntent)
-                return true
+                startService(Intent(this, LocationService::class.java))
+                true
             }
 
             R.id.action_dbbackup -> {
-                showBackupDialog()
-                return true
+                showConfirmationDialog(
+                    "Backup",
+                    "Do you want to backup?",
+                    DialogInterface.OnClickListener { _, _ ->
+                        val db = DatabaseHelper(applicationContext)
+                        db.backup()
+                    })
+                true
             }
 
             R.id.action_dbrestore -> {
-                showRestoreDialog()
-                return true
+                showConfirmationDialog(
+                    "Restore",
+                    "Do you want to restore?",
+                    DialogInterface.OnClickListener { _, _ ->
+                        val db = DatabaseHelper(applicationContext)
+                        db.restore()
+                    })
+                true
             }
+
             R.id.action_clear_log -> {
-                val size: Int = logList.size
-                logList.clear()
-                val db = DatabaseLog(applicationContext)
-                db.open()
-                db.clear()
-                db.close()
-                logViewAdapter.notifyItemRangeRemoved(0, size)
-                Toast.makeText(applicationContext, "Done", Toast.LENGTH_SHORT).show()
-                return true
+                clearLog()
+                true
             }
+
             else -> super.onOptionsItemSelected(menuItem)
         }
     }
 
-    private fun showBackupDialog() {
-        // Late initialize an alert dialog object
-        lateinit var dialog: AlertDialog
-
-
-        // Initialize a new instance of alert dialog builder object
-        val builder = AlertDialog.Builder(this)
-
-        // Set a title for alert dialog
-        builder.setTitle("Are you sure?")
-
-        // On click listener for dialog buttons
-        val dialogClickListener = DialogInterface.OnClickListener { _, which ->
-            when (which) {
-                DialogInterface.BUTTON_POSITIVE -> {
-                    val db = DatabaseHelper(applicationContext)
-                    db.backup()
-                }
-            }
-        }
-
-        // Set the alert dialog positive/yes button
-        builder.setPositiveButton("YES", dialogClickListener)
-
-        // Set the alert dialog negative/no button
-        builder.setNegativeButton("NO", dialogClickListener)
-
-        // Initialize the AlertDialog using builder object
-        dialog = builder.create()
-
-        // Finally, display the alert dialog
-        dialog.show()
+    private fun setupPermissions() {
+        val permissions = arrayOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+            android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            android.Manifest.permission.READ_EXTERNAL_STORAGE,
+            android.Manifest.permission.BLUETOOTH_SCAN
+        )
+        ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE)
     }
 
-    private fun showRestoreDialog() {
-        // Late initialize an alert dialog object
-        lateinit var dialog: AlertDialog
-
-
-        // Initialize a new instance of alert dialog builder object
-        val builder = AlertDialog.Builder(this)
-
-        // Set a title for alert dialog
-        builder.setTitle("Are you sure?")
-
-        // On click listener for dialog buttons
-        val dialogClickListener = DialogInterface.OnClickListener { _, which ->
-            when (which) {
-                DialogInterface.BUTTON_POSITIVE -> {
-                    val db = DatabaseHelper(applicationContext)
-                    db.restore()
-                }
-            }
-        }
-
-        // Set the alert dialog positive/yes button
-        builder.setPositiveButton("YES", dialogClickListener)
-
-        // Set the alert dialog negative/no button
-        builder.setNegativeButton("NO", dialogClickListener)
-
-        // Initialize the AlertDialog using builder object
-        dialog = builder.create()
-
-        // Finally, display the alert dialog
-        dialog.show()
-    }
-
-    private fun getUpgradeLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.APP_UPDATE)
-        return iFilter
-    }
-
-    private fun getUpdateErrorLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.APP_UPDATE_ERROR)
-        return iFilter
-    }
-
-    private fun getCheckUpdateLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.APP_CHECK_UPDATE)
-        return iFilter
-    }
-
-    private fun getNoUpdateLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.APP_NO_AVAILABLE_UPDATE)
-        return iFilter
-    }
-
-    private fun getUpdateAvailableLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.APP_AVAILABLE)
-        return iFilter
-    }
-
-    private fun getConnectionErrorLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(BluetoothEvents.ERROR)
-        return iFilter
-    }
-
-    private fun getConnectionOkLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(BluetoothEvents.DATA_RETRIEVED)
-        return iFilter
-    }
-
-    private fun getWebserviceErrorDataSentLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.ERROR)
-        return iFilter
-    }
-
-    private fun getWebserviceInfoDataSentLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.INFO)
-        return iFilter
-    }
-
-    private fun getWebserviceDataSentLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(WebserviceEvents.DATA_SENT)
-        return iFilter
-    }
-
-    private fun getDebugLocalIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(MainEvents.DEBUG)
-        return iFilter
-    }
-
-    private fun getDatabaseErrorIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(DatabaseEvents.ERROR)
-        return iFilter
-    }
-
-    private fun getLocationChangedIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(LocationEvents.LOCATION_CHANGED)
-        return iFilter
-    }
-
-    private fun getMainServiceIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(MainEvents.BROADCAST)
-        return iFilter
-    }
-
-    private fun getMainServiceInfoIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(MainEvents.INFO)
-        return iFilter
-    }
-
-    private fun getMainServiceErrorIntentFilter(): IntentFilter {
-        val iFilter = IntentFilter()
-        iFilter.addAction(MainEvents.ERROR)
-        return iFilter
+    private fun setupRecyclerView() {
+        recyclerView = findViewById(R.id.myRecyclerView)
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        logViewAdapter = MyRecyclerViewAdapter(logList)
+        recyclerView.adapter = logViewAdapter
     }
 
     private fun registerLocalBroadcast() {
-        //LocalBroadcast
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getConnectionOkLocalIntentFilter()
-        )
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getConnectionErrorLocalIntentFilter()
-        )
-
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getWebserviceDataSentLocalIntentFilter()
-        )
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getWebserviceErrorDataSentLocalIntentFilter()
-        )
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getWebserviceInfoDataSentLocalIntentFilter()
-        )
-        applicationContext.registerReceiver(localBroadcastReceiver, getDebugLocalIntentFilter())
-
-        applicationContext.registerReceiver(localBroadcastReceiver, getUpgradeLocalIntentFilter())
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getUpdateAvailableLocalIntentFilter()
-        )
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getCheckUpdateLocalIntentFilter()
-        )
-        applicationContext.registerReceiver(localBroadcastReceiver, getNoUpdateLocalIntentFilter())
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getUpdateErrorLocalIntentFilter()
-        )
-
-        applicationContext.registerReceiver(localBroadcastReceiver, getDatabaseErrorIntentFilter())
-
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getLocationChangedIntentFilter()
-        )
-
-        applicationContext.registerReceiver(localBroadcastReceiver, getMainServiceIntentFilter())
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
-            getMainServiceInfoIntentFilter()
-        )
-        applicationContext.registerReceiver(
-            localBroadcastReceiver,
+        val intentFilters = arrayOf(
+            getConnectionOkLocalIntentFilter(),
+            getConnectionErrorLocalIntentFilter(),
+            getWebserviceDataSentLocalIntentFilter(),
+            getWebserviceErrorDataSentLocalIntentFilter(),
+            getWebserviceInfoDataSentLocalIntentFilter(),
+            getDebugLocalIntentFilter(),
+            getUpgradeLocalIntentFilter(),
+            getUpdateAvailableLocalIntentFilter(),
+            getCheckUpdateLocalIntentFilter(),
+            getNoUpdateLocalIntentFilter(),
+            getUpdateErrorLocalIntentFilter(),
+            getDatabaseErrorIntentFilter(),
+            getLocationChangedIntentFilter(),
+            getMainServiceIntentFilter(),
+            getMainServiceInfoIntentFilter(),
             getMainServiceErrorIntentFilter()
         )
 
+        intentFilters.forEach { filter ->
+            applicationContext.registerReceiver(localBroadcastReceiver, filter)
+        }
+    }
+
+    fun isInternetAvailable(context: Context): Boolean {
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = connectivityManager.activeNetwork ?: return false
+        val networkCapabilities =
+            connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+        return networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private val localBroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent?) {
+            intent?.let { intent ->
+                when (intent.action) {
+                    MainEvents.BROADCAST -> captureLog(
+                        intent.getStringExtra("message")!!,
+                        intent.getStringExtra("type")!!
+                    )
+
+                    MainEvents.INFO, WebserviceEvents.INFO ->
+                        captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
+
+                    MainEvents.ERROR, BluetoothEvents.ERROR, WebserviceEvents.ERROR ->
+                        captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
+
+                    BluetoothEvents.DATA_RETRIEVED -> {
+                        captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
+                        if (isInternetAvailable(context)) {
+
+                            val device = intent.getStringExtra("device")!!
+                            val volt = intent.getStringExtra("volt")!!
+                            val temp = intent.getStringExtra("tempC")!!
+
+                            try {
+                                val session = Session(applicationContext)
+                                val bp = getDeviceBatteryPercentage(applicationContext)
+
+                                val jsonObject = JSONObject().apply {
+                                    put("voltage", volt)
+                                    put("temperature", temp)
+                                    put("tracker_battery", bp.toString())
+                                    put("longitude", session.longitude)
+                                    put("latitude", session.latitude)
+                                }
+
+                                val mqttUrl =
+                                    PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                                        .getString("mqttUrl", "") ?: ""
+                                val mqttPort =
+                                    PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                                        .getString("mqttPort", "") ?: ""
+                                val userName =
+                                    PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                                        .getString("mqttUsername", "") ?: ""
+                                val password =
+                                    PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                                        .getString("mqttPassword", "")
+
+                                val brokerUrl = "tcp://$mqttUrl:$mqttPort"
+                                val topic = "${device.replace(":", "").lowercase()}/attributes"
+                                val client =
+                                    MqttClient(brokerUrl, MQTT_CLIENT_ID, MemoryPersistence())
+                                val options = MqttConnectOptions().apply {
+                                    isCleanSession = true
+                                    this.userName = userName
+                                    password?.let { setPassword(it.toCharArray()) }
+                                }
+
+                                client.connect(options)
+                                client.publish(
+                                    topic,
+                                    MqttMessage(jsonObject.toString().toByteArray(Charsets.UTF_8))
+                                )
+                                client.disconnect()
+
+                            } catch (e: MqttException) {
+                                handleException("MQTT Exception: ${e.message}")
+                            } catch (e: Exception) {
+                                handleException("Exception: ${e.message}")
+                            }
+                        } else {
+                            handleException("MQTT Exception: No internet available")
+                        }
+                    }
+
+                    WebserviceEvents.DATA_SENT -> captureLog(
+                        "Data sent ${intent.getStringExtra("message")}",
+                        MainEvents.INFO
+                    )
+
+                    LocationEvents.LOCATION_CHANGED -> captureLog(
+                        "Obtain longitude: ${
+                            intent.getStringExtra(
+                                "longitude"
+                            )
+                        } latitude: ${intent.getStringExtra("latitude")}", MainEvents.INFO
+                    )
+
+                    DatabaseEvents.ERROR -> captureLog(
+                        intent.getStringExtra("message")!!,
+                        MainEvents.ERROR
+                    )
+
+                    MainEvents.DEBUG -> {
+                        if (PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                                .getBoolean("debugApp", false)
+                        ) {
+                            Toast.makeText(
+                                applicationContext,
+                                intent.getStringExtra("message"),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+                recyclerView.layoutManager?.scrollToPosition(0)
+                logViewAdapter.notifyItemInserted(0)
+            }
+        }
     }
 
     private fun captureLog(message: String, type: String) {
         val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
         val debug = preferences.getBoolean("debugApp", false)
 
-        // Aggiunta della riga di log al database
-        val dbLog = DatabaseLog(applicationContext)
-        dbLog.open()
-        dbLog.createRow(Date.now(), message, type)
-        dbLog.close()
+        DatabaseLog(applicationContext).apply {
+            open()
+            createRow(Date.now(), message, type)
+            close()
+        }
 
-        // Aggiunta della riga di log alla lista mantenendo solo le ultime 10 righe
         synchronized(logList) {
             logList.add(0, BluetoothWatcherLog(Date.now(), message, type))
-            while (logList.size > 16) {
-                logList.removeAt(16)
-                logViewAdapter.notifyItemRangeRemoved(0, 16)
+            if (logList.size > MAX_LOG_ITEMS) {
+                logList.removeAt(MAX_LOG_ITEMS)
+                logViewAdapter.notifyItemRangeRemoved(0, MAX_LOG_ITEMS)
             }
         }
 
-        // Visualizzazione del Toast se debug è attivo
         if (debug) {
             Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
         }
     }
 
+    private fun handleException(errorMessage: String) {
+        applicationContext.sendBroadcast(Intent(DatabaseEvents.ERROR).apply {
+            putExtra("message", errorMessage)
+        })
+    }
+
+    private fun showConfirmationDialog(
+        title: String,
+        message: String,
+        onClickListener: DialogInterface.OnClickListener
+    ) {
+        AlertDialog.Builder(this).apply {
+            setTitle(title)
+            setMessage(message)
+            setPositiveButton("YES", onClickListener)
+            setNegativeButton("NO") { _, _ -> }
+        }.create().show()
+    }
+
+    private fun clearLog() {
+        val size = logList.size
+        logList.clear()
+        DatabaseLog(applicationContext).apply {
+            open()
+            clear()
+            close()
+        }
+        logViewAdapter.notifyItemRangeRemoved(0, size)
+        Toast.makeText(applicationContext, "Log Cleared", Toast.LENGTH_SHORT).show()
+    }
+
+    // Intent filters
+    private fun getConnectionOkLocalIntentFilter() = IntentFilter(BluetoothEvents.DATA_RETRIEVED)
+
+    private fun getConnectionErrorLocalIntentFilter() = IntentFilter(BluetoothEvents.ERROR)
+
+    private fun getWebserviceDataSentLocalIntentFilter() = IntentFilter(WebserviceEvents.DATA_SENT)
+
+    private fun getWebserviceErrorDataSentLocalIntentFilter() = IntentFilter(WebserviceEvents.ERROR)
+
+    private fun getWebserviceInfoDataSentLocalIntentFilter() = IntentFilter(WebserviceEvents.INFO)
+
+    private fun getDebugLocalIntentFilter() = IntentFilter(MainEvents.DEBUG)
+
+    private fun getUpgradeLocalIntentFilter() = IntentFilter(WebserviceEvents.APP_UPDATE)
+
+    private fun getUpdateAvailableLocalIntentFilter() = IntentFilter(WebserviceEvents.APP_AVAILABLE)
+
+    private fun getCheckUpdateLocalIntentFilter() = IntentFilter(WebserviceEvents.APP_CHECK_UPDATE)
+
+    private fun getNoUpdateLocalIntentFilter() =
+        IntentFilter(WebserviceEvents.APP_NO_AVAILABLE_UPDATE)
+
+    private fun getUpdateErrorLocalIntentFilter() = IntentFilter(WebserviceEvents.APP_UPDATE_ERROR)
+
+    private fun getDatabaseErrorIntentFilter() = IntentFilter(DatabaseEvents.ERROR)
+
+    private fun getLocationChangedIntentFilter() = IntentFilter(LocationEvents.LOCATION_CHANGED)
+
+    private fun getMainServiceIntentFilter() = IntentFilter(MainEvents.BROADCAST)
+
+    private fun getMainServiceInfoIntentFilter() = IntentFilter(MainEvents.INFO)
+
+    private fun getMainServiceErrorIntentFilter() = IntentFilter(MainEvents.ERROR)
+
+    override fun onDestroy() {
+        super.onDestroy()
+        applicationContext.unregisterReceiver(localBroadcastReceiver)
+    }
 }
