@@ -187,8 +187,15 @@ public final class BluetoothClient {
         if (bluetoothInputStream != null) {
             bluetoothInputStream.close();
         }
-        if (bluetoothSocket != null) {
-            bluetoothSocket.close();
+        if (bluetoothSocket != null && bluetoothSocket.isConnected()) {
+            try {
+                bluetoothSocket.close();
+                Log.d(TAG, "Socket closed successfully");
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing socket: " + e.getMessage());
+            }
+        } else {
+            Log.d(TAG, "Socket is already closed or not connected");
         }
 
         context.unregisterReceiver(closeBluetoothReceiver);
