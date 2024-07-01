@@ -108,7 +108,7 @@ class BtTask(
             val bluetoothDevices = address!!.split(",")
             for (element in bluetoothDevices) {
                 val bluetoothDeviceAddress = element.replace("\\s".toRegex(), "")
-                loopOk@ for (attempt in 1..5) {
+                loopOk@ for (attempt in 1..1) {
                     if (tryBluetoothConnection(context, bluetoothDeviceAddress)) {
                         Handler(Looper.getMainLooper()).postDelayed({}, 1000)
                         break@loopOk

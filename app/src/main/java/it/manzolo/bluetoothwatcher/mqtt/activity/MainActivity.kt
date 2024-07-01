@@ -124,55 +124,61 @@ class MainActivity : AppCompatActivity() {
                     val temp = intent.getStringExtra("tempC")!!
 
                     try {
+                        // Session and location retrieval (assuming these are managed elsewhere)
                         val session = Session(applicationContext)
                         val bp = getDeviceBatteryPercentage(applicationContext)
 
-                        val jsonObject = JSONObject()
-                        jsonObject.put("voltage", volt)
-                        jsonObject.put("temperature", temp)
-                        jsonObject.put("tracker_battery", bp.toString())
-                        jsonObject.put("longitude", session.longitude)
-                        jsonObject.put("latitude", session.latitude)
-                        val mqttUrl =
-                            PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                                .getString("mqttUrl", "")
-                        val mqttPort =
-                            PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                                .getString("mqttPort", "")
-                        val userName =
-                            PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                                .getString("mqttUsername", "")
-                        val password =
-                            PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                                .getString("mqttPassword", "")
-                        val brokerUrl = "tcp://$mqttUrl:$mqttPort"
-                        val topic = device.replace(":", "").lowercase() + "/attributes"
-                        val client = MqttClient(brokerUrl, "bluetooth_watcher", MemoryPersistence())
-                        val options = MqttConnectOptions()
-                        options.isCleanSession = true
-                        options.userName = userName
-                        if (password != null) {
-                            options.password = password.toCharArray()
+                        // Prepare JSON payload
+                        val jsonObject = JSONObject().apply {
+                            put("voltage", volt)
+                            put("temperature", temp)
+                            put("tracker_battery", bp.toString())
+                            put("longitude", session.longitude)
+                            put("latitude", session.latitude)
                         }
+
+                        // MQTT Client setup
+                        val mqttUrl = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                            .getString("mqttUrl", "") ?: ""
+                        val mqttPort = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                            .getString("mqttPort", "") ?: ""
+                        val userName = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                            .getString("mqttUsername", "") ?: ""
+                        val password = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                            .getString("mqttPassword", "")
+
+                        val brokerUrl = "tcp://$mqttUrl:$mqttPort"
+                        val topic = "${device.replace(":", "").lowercase()}/attributes"
+
+                        val client = MqttClient(brokerUrl, "bluetooth_watcher", MemoryPersistence())
+                        val options = MqttConnectOptions().apply {
+                            isCleanSession = true
+                            this.userName = userName // Setting userName property of MqttConnectOptions
+                            password?.let { setPassword(it.toCharArray()) }
+                        }
+
+                        // Connect to MQTT broker
                         client.connect(options)
 
-                        val message =
-                            MqttMessage(jsonObject.toString().toByteArray(charset("UTF-8")))
-
+                        // Publish message
+                        val message = MqttMessage(jsonObject.toString().toByteArray(Charsets.UTF_8))
                         client.publish(topic, message)
 
+                        // Disconnect MQTT client
                         client.disconnect()
+
                     } catch (e: MqttException) {
-                        //Log.e(TAG, e.message)
-                        val dbIntent = Intent(DatabaseEvents.ERROR)
-                        // You can also include some extra data.
-                        dbIntent.putExtra("message", e.message)
+                        // Handle MQTT exceptions
+                        val dbIntent = Intent(DatabaseEvents.ERROR).apply {
+                            putExtra("message", "MQTT Exception: ${e.message}")
+                        }
                         applicationContext.sendBroadcast(dbIntent)
-                    }catch (e: Exception) {
-                        //Log.e(TAG, e.message)
-                        val dbIntent = Intent(DatabaseEvents.ERROR)
-                        // You can also include some extra data.
-                        dbIntent.putExtra("message", e.message)
+
+                    } catch (e: Exception) {
+                        // Handle other exceptions
+                        val dbIntent = Intent(DatabaseEvents.ERROR).apply {
+                            putExtra("message", "Exception: ${e.message}")
+                        }
                         applicationContext.sendBroadcast(dbIntent)
                     }
                 }
@@ -477,13 +483,26 @@ class MainActivity : AppCompatActivity() {
     private fun captureLog(message: String, type: String) {
         val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
         val debug = preferences.getBoolean("debugApp", false)
+
+        // Aggiunta della riga di log al database
         val dbLog = DatabaseLog(applicationContext)
         dbLog.open()
         dbLog.createRow(Date.now(), message, type)
-        logList.add(0, BluetoothWatcherLog(Date.now(), message, type))
         dbLog.close()
+
+        // Aggiunta della riga di log alla lista mantenendo solo le ultime 10 righe
+        synchronized(logList) {
+            logList.add(0, BluetoothWatcherLog(Date.now(), message, type))
+            while (logList.size > 16) {
+                logList.removeAt(16)
+                logViewAdapter.notifyItemRangeRemoved(0, 16)
+            }
+        }
+
+        // Visualizzazione del Toast se debug è attivo
         if (debug) {
             Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
         }
     }
+
 }
