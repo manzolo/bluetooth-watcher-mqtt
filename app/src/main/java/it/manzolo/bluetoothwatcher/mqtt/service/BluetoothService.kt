@@ -101,11 +101,17 @@ class BtTask(private val context: Context) {
             val bluetoothDevices = address?.split(",") ?: emptyList()
 
             for (deviceAddress in bluetoothDevices.map { it.trim() }) {
+                var success = false
                 repeat(3) { attempt ->
                     if (tryBluetoothConnection(context, deviceAddress)) {
-                        delay(1000)
-                        return@repeat
+                        success = true
+                        return@repeat // Termina l'iterazione corrente
                     }
+                }
+                if (success) {
+                    delay(1000)
+                } else {
+                    // Gestisci il caso in cui tutte le ripetizioni falliscono
                 }
             }
         }
@@ -122,6 +128,7 @@ class BtTask(private val context: Context) {
             false
         }
     }
+
 
     private fun sendErrorBroadcast(context: Context, message: String) {
         val intent = Intent(BluetoothEvents.ERROR)

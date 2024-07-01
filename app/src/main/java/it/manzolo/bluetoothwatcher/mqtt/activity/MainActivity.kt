@@ -85,8 +85,23 @@ class MainActivity : AppCompatActivity() {
     private val localBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
             when (intent?.action) {
-                MainEvents.BROADCAST, MainEvents.INFO, MainEvents.ERROR, BluetoothEvents.ERROR, WebserviceEvents.ERROR, WebserviceEvents.INFO, DatabaseEvents.ERROR, MainEvents.DEBUG -> {
+                MainEvents.INFO, WebserviceEvents.INFO -> {
                     captureLog(intent.getStringExtra("message")!!, intent.action!!)
+                }
+                MainEvents.DEBUG -> {
+                    captureLog(intent.getStringExtra("message")!!, MainEvents.DEBUG)
+                }
+                DatabaseEvents.ERROR -> {
+                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
+                }
+                WebserviceEvents.ERROR -> {
+                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
+                }
+                BluetoothEvents.ERROR -> {
+                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
+                }
+                MainEvents.ERROR -> {
+                    captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
                 }
                 BluetoothEvents.DATA_RETRIEVED -> {
                     captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
@@ -96,6 +111,9 @@ class MainActivity : AppCompatActivity() {
                     val temp = intent.getStringExtra("tempC")!!
 
                     handleMqttPublish(device, volt, temp)
+                }
+                MainEvents.BROADCAST -> {
+                    captureLog(intent.getStringExtra("message")!!, intent.getStringExtra("type")!!)
                 }
                 WebserviceEvents.DATA_SENT -> {
                     captureLog("Data sent " + intent.getStringExtra("message"), MainEvents.INFO)

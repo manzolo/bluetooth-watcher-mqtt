@@ -105,8 +105,9 @@ public final class BluetoothClient {
             return true;
         } catch (IOException e) {
             Log.e(TAG, "Error during connection", e);
-            close();
             throw new Exception("Unable to connect to " + this.deviceAddress, e);
+            //close();
+
         }
     }
 
