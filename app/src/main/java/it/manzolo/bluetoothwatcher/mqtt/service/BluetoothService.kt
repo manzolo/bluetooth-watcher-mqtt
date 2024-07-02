@@ -1,5 +1,8 @@
 package it.manzolo.bluetoothwatcher.mqtt.service
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -9,11 +12,13 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import androidx.preference.PreferenceManager
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import it.manzolo.bluetoothwatcher.mqtt.R
 import it.manzolo.bluetoothwatcher.mqtt.bluetooth.BluetoothClient
 import it.manzolo.bluetoothwatcher.mqtt.device.DebugData
 import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
@@ -27,8 +32,10 @@ import kotlin.coroutines.CoroutineContext
 
 class BluetoothWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
+        // Avvia il servizio come foreground service
         val intent = Intent(applicationContext, BluetoothService::class.java)
-        applicationContext.startService(intent)
+        intent.action = BluetoothService.ACTION_START_FOREGROUND
+        applicationContext.startForegroundService(intent)
 
         // Schedule the next work
         val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
@@ -45,8 +52,37 @@ class BluetoothWorker(context: Context, params: WorkerParameters) : Worker(conte
 class BluetoothService : Service() {
     companion object {
         val TAG: String = BluetoothService::class.java.simpleName
+        const val ACTION_START_FOREGROUND = "it.manzolo.bluetoothwatcher.mqtt.service.action.START_FOREGROUND"
+        private const val NOTIFICATION_CHANNEL_ID = "BluetoothServiceChannel"
+        private const val NOTIFICATION_ID = 1
     }
+    private fun startForegroundService() {
+        Log.d(TAG, "onBluetoothStartJob")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Bluetooth Service Channel",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
+        }
 
+        val notification: Notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle("Manzolo Bluetooth Service")
+            .setContentText("Running Bluetooth service in background")
+            .setSmallIcon(R.drawable.ic_launcher_background)
+            .build()
+
+        startForeground(NOTIFICATION_ID, notification)
+        //Log.w(TAG,Build.FINGERPRINT)
+        if (Build.FINGERPRINT.contains("generic") || Build.FINGERPRINT.contains("userdebug")) {
+            DebugData().insertDebugData(applicationContext)
+        } else {
+            startBluetoothTask()
+        }
+
+    }
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "onCreate")
@@ -57,13 +93,11 @@ class BluetoothService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onBluetoothStartJob")
-        if (Build.FINGERPRINT.contains("generic")) {
-            DebugData().insertDebugData(applicationContext)
-        } else {
-            startBluetoothTask()
+        if (intent?.action == ACTION_START_FOREGROUND) {
+            startForegroundService()
         }
-        return START_NOT_STICKY
+        // Logica per gestire i comandi di avvio
+        return START_STICKY
     }
 
     override fun onDestroy() {

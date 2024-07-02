@@ -15,19 +15,21 @@ import androidx.work.WorkManager
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
 import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.LocationService
+import it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.SentinelService
 import it.manzolo.bluetoothwatcher.mqtt.utils.HandlerList
 import java.util.concurrent.TimeUnit
 
 class App : Application() {
     companion object {
-        private const val BLUETOOTH_WORKER_TAG = "BluetoothWorker"
+        private const val BLUETOOTH_WORKER_TAG = "it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker"
+        private const val LOCATION_WORKER_TAG = "it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker"
         fun getHandlers(): ArrayList<HandlerList> {
             return handlers
         }
         fun cancelAllWorkers(context: Context) {
             WorkManager.getInstance(context).cancelAllWorkByTag(BLUETOOTH_WORKER_TAG)
-            //WorkManager.getInstance(context).cancelAllWorkByTag(LOCATION_WORKER_TAG)
+            WorkManager.getInstance(context).cancelAllWorkByTag(LOCATION_WORKER_TAG)
             //WorkManager.getInstance(context).cancelAllWorkByTag(SENTINEL_WORKER_TAG)
         }
 
@@ -99,14 +101,38 @@ class App : Application() {
         fun scheduleLocationService(context: Context) {
 
             val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-            val seconds = preferences.getString("locationServiceEverySeconds", "600")
+            val seconds =
+                preferences.getString("locationServiceEverySeconds", "600")?.toLong() ?: 600L
 
-            if (seconds != null) {
-                val intent = Intent(MainEvents.BROADCAST)
-                intent.putExtra("message", "Start location service every $seconds seconds")
-                intent.putExtra("type", MainEvents.INFO)
-                context.sendBroadcast(intent)
-                cron(context, LocationService::class.java, seconds)
+            val intent = Intent(MainEvents.BROADCAST)
+            intent.putExtra("message", "Start location service every $seconds seconds")
+            intent.putExtra("type", MainEvents.INFO)
+            //cron(context, LocationService::class.java, seconds)
+            context.sendBroadcast(intent)
+
+            // Cancel any existing work with the same tag before enqueuing new work
+            WorkManager.getInstance(context).cancelAllWorkByTag(LOCATION_WORKER_TAG)
+
+            if (seconds >= 900) { // 15 minutes
+                val periodicWorkRequest =
+                    PeriodicWorkRequestBuilder<LocationWorker>(seconds, TimeUnit.SECONDS)
+                        .addTag(LOCATION_WORKER_TAG)
+                        .build()
+                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                    LOCATION_WORKER_TAG,
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    periodicWorkRequest
+                )
+            } else {
+                val workRequest = OneTimeWorkRequestBuilder<LocationWorker>()
+                    .setInitialDelay(seconds, TimeUnit.SECONDS)
+                    .addTag(LOCATION_WORKER_TAG)
+                    .build()
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    LOCATION_WORKER_TAG,
+                    ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
             }
 
         }
