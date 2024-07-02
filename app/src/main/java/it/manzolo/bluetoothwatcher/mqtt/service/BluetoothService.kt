@@ -10,12 +10,37 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.preference.PreferenceManager
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Worker
+import androidx.work.WorkerParameters
 import it.manzolo.bluetoothwatcher.mqtt.bluetooth.BluetoothClient
 import it.manzolo.bluetoothwatcher.mqtt.device.DebugData
 import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.CoroutineContext
 
+class BluetoothWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+    override fun doWork(): Result {
+        val intent = Intent(applicationContext, BluetoothService::class.java)
+        applicationContext.startService(intent)
+
+        // Schedule the next work
+        val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        val seconds = preferences.getString("bluetoothServiceEverySeconds", "90")?.toLong() ?: 90L
+        val workRequest = OneTimeWorkRequestBuilder<BluetoothWorker>()
+            .setInitialDelay(seconds, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(applicationContext).enqueue(workRequest)
+
+        return Result.success()
+    }
+}
 
 class BluetoothService : Service() {
     companion object {

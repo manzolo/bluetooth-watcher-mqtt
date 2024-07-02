@@ -1,6 +1,10 @@
 package it.manzolo.bluetoothwatcher.mqtt.activity
 
-import android.content.*
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.DialogInterface
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
@@ -13,11 +17,16 @@ import androidx.core.app.ActivityCompat
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import it.manzolo.bluetoothwatcher.mqtt.App
 import it.manzolo.bluetoothwatcher.mqtt.R
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseHelper
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseLog
 import it.manzolo.bluetoothwatcher.mqtt.device.getDeviceBatteryPercentage
-import it.manzolo.bluetoothwatcher.mqtt.enums.*
+import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.DatabaseEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.LocationEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.WebserviceEvents
 import it.manzolo.bluetoothwatcher.mqtt.error.UnCaughtExceptionHandler
 import it.manzolo.bluetoothwatcher.mqtt.log.BluetoothWatcherLog
 import it.manzolo.bluetoothwatcher.mqtt.log.MyRecyclerViewAdapter
@@ -56,6 +65,9 @@ class MainActivity : AppCompatActivity() {
         logList.add(0, BluetoothWatcherLog(Date.now(), "System ready", MainEvents.INFO))
         PreferenceManager.getDefaultSharedPreferences(applicationContext).edit()
             .putBoolean("enabled", true).apply()
+
+        App.cancelAllWorkers(this)
+        App.scheduleBluetoothService(this)
 
         registerLocalBroadcast()
         Thread.setDefaultUncaughtExceptionHandler(UnCaughtExceptionHandler(this))

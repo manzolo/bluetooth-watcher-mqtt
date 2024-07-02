@@ -7,16 +7,28 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.preference.PreferenceManager
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
-import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothService
+import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.LocationService
 import it.manzolo.bluetoothwatcher.mqtt.service.SentinelService
 import it.manzolo.bluetoothwatcher.mqtt.utils.HandlerList
+import java.util.concurrent.TimeUnit
 
 class App : Application() {
     companion object {
+        private const val BLUETOOTH_WORKER_TAG = "BluetoothWorker"
         fun getHandlers(): ArrayList<HandlerList> {
             return handlers
+        }
+        fun cancelAllWorkers(context: Context) {
+            WorkManager.getInstance(context).cancelAllWorkByTag(BLUETOOTH_WORKER_TAG)
+            //WorkManager.getInstance(context).cancelAllWorkByTag(LOCATION_WORKER_TAG)
+            //WorkManager.getInstance(context).cancelAllWorkByTag(SENTINEL_WORKER_TAG)
         }
 
         private val handlers: ArrayList<HandlerList> = ArrayList()
@@ -45,18 +57,42 @@ class App : Application() {
 
         fun scheduleBluetoothService(context: Context) {
             val preferences = PreferenceManager.getDefaultSharedPreferences(context)
-            val seconds = preferences.getString("bluetoothServiceEverySeconds", "90")
+            val seconds =
+                preferences.getString("bluetoothServiceEverySeconds", "90")?.toLong() ?: 90L
             val debug = preferences.getBoolean("debugApp", false)
+
             if (debug) {
                 Toast.makeText(context, "Start bluetooth service every $seconds seconds", Toast.LENGTH_SHORT).show()
             }
 
-            if (seconds != null) {
-                val intent = Intent(MainEvents.BROADCAST)
-                intent.putExtra("message", "Start bluetooth service every $seconds seconds")
-                intent.putExtra("type", MainEvents.INFO)
-                context.sendBroadcast(intent)
-                cron(context, BluetoothService::class.java, seconds)
+            val intent = Intent(MainEvents.BROADCAST)
+            intent.putExtra("message", "Start bluetooth service every $seconds seconds")
+            intent.putExtra("type", MainEvents.INFO)
+            context.sendBroadcast(intent)
+
+            // Cancel any existing work with the same tag before enqueuing new work
+            WorkManager.getInstance(context).cancelAllWorkByTag(BLUETOOTH_WORKER_TAG)
+
+            if (seconds >= 900) { // 15 minutes
+                val periodicWorkRequest =
+                    PeriodicWorkRequestBuilder<BluetoothWorker>(seconds, TimeUnit.SECONDS)
+                        .addTag(BLUETOOTH_WORKER_TAG)
+                        .build()
+                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                    BLUETOOTH_WORKER_TAG,
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    periodicWorkRequest
+                )
+            } else {
+                val workRequest = OneTimeWorkRequestBuilder<BluetoothWorker>()
+                    .setInitialDelay(seconds, TimeUnit.SECONDS)
+                    .addTag(BLUETOOTH_WORKER_TAG)
+                    .build()
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    BLUETOOTH_WORKER_TAG,
+                    ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
             }
         }
 
