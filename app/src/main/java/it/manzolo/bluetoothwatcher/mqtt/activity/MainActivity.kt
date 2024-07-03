@@ -1,15 +1,19 @@
 package it.manzolo.bluetoothwatcher.mqtt.activity
 
 import android.Manifest
+import android.bluetooth.BluetoothAdapter
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -24,7 +28,7 @@ import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.DatabaseEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.LocationEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
-import it.manzolo.bluetoothwatcher.mqtt.enums.WebserviceEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.MqttEvents
 import it.manzolo.bluetoothwatcher.mqtt.log.BluetoothWatcherLog
 import it.manzolo.bluetoothwatcher.mqtt.log.MyRecyclerViewAdapter
 import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothService
@@ -45,7 +49,9 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.BLUETOOTH_SCAN,
-            //Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
         )
     }
 
@@ -59,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar))
 
         setupPermissions()
+        requestBluetooth()
         setupRecyclerView()
         registerLocalBroadcast()
 
@@ -82,6 +89,7 @@ class MainActivity : AppCompatActivity() {
         ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_REQUEST_CODE)
     }
 
+
     // Funzione per avviare tutti i servizi necessari
     private fun scheduleServices() {
         App.scheduleBluetoothService(this)
@@ -89,7 +97,35 @@ class MainActivity : AppCompatActivity() {
 
         startService(Intent(this, MqttService::class.java))
     }
+    fun requestBluetooth() {
+        // check android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            requestMultiplePermissions.launch(
+                arrayOf(
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                )
+            )
+        } else {
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            requestEnableBluetooth.launch(enableBtIntent)
+        }
+    }
+    private val requestEnableBluetooth =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                // granted
+            } else {
+                // denied
+            }
+        }
 
+    private val requestMultiplePermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            permissions.entries.forEach {
+                Log.d("MyTag", "${it.key} = ${it.value}")
+            }
+        }
     // Funzione per mostrare un dialog di conferma
     private fun showConfirmationDialog(
         title: String,
@@ -187,14 +223,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun registerLocalBroadcast() {
         val intentFilters = arrayOf(
-            getConnectionErrorLocalIntentFilter(),
-            getLogIntentFilter(),
+            getBluetoothErrorLocalIntentFilter(),
+            getBroadcastLogIntentFilter(),
             getDebugLocalIntentFilter(),
             getDatabaseErrorIntentFilter(),
             getLocationChangedIntentFilter(),
-            getMainServiceIntentFilter(),
-            getMainServiceInfoIntentFilter(),
-            getMainServiceErrorIntentFilter()
+            getMqttErrorIntentFilter(),
+            getBroadcastIntentFilter(),
+            getInfoIntentFilter(),
+            getErrorIntentFilter()
         )
 
         intentFilters.forEach { filter ->
@@ -210,13 +247,13 @@ class MainActivity : AppCompatActivity() {
                         intent.getStringExtra("message")!!,
                         intent.getStringExtra("type")!!
                     )
-                    MainEvents.INFO, WebserviceEvents.INFO ->
+                    MainEvents.INFO, MqttEvents.INFO ->
                         captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
 
-                    MainEvents.ERROR, BluetoothEvents.ERROR, WebserviceEvents.ERROR ->
+                    MainEvents.ERROR, BluetoothEvents.ERROR, MqttEvents.ERROR ->
                         captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
 
-                    WebserviceEvents.DATA_SENT -> captureLog(
+                    MqttEvents.DATA_SENT -> captureLog(
                         "Data sent ${intent.getStringExtra("message")}",
                         MainEvents.INFO
                     )
@@ -276,19 +313,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Funzioni per ottenere gli intent filters
-    private fun getConnectionErrorLocalIntentFilter() = IntentFilter(BluetoothEvents.ERROR)
+    private fun getBluetoothErrorLocalIntentFilter() = IntentFilter(BluetoothEvents.ERROR)
 
     private fun getDebugLocalIntentFilter() = IntentFilter(MainEvents.DEBUG)
 
     private fun getDatabaseErrorIntentFilter() = IntentFilter(DatabaseEvents.ERROR)
 
+    private fun getMqttErrorIntentFilter() = IntentFilter(MqttEvents.ERROR)
+
     private fun getLocationChangedIntentFilter() = IntentFilter(LocationEvents.LOCATION_CHANGED)
 
-    private fun getLogIntentFilter() = IntentFilter(MainEvents.BROADCAST_LOG)
+    private fun getBroadcastLogIntentFilter() = IntentFilter(MainEvents.BROADCAST_LOG)
 
-    private fun getMainServiceIntentFilter() = IntentFilter(MainEvents.BROADCAST)
+    private fun getBroadcastIntentFilter() = IntentFilter(MainEvents.BROADCAST)
 
-    private fun getMainServiceInfoIntentFilter() = IntentFilter(MainEvents.INFO)
+    private fun getInfoIntentFilter() = IntentFilter(MainEvents.INFO)
 
-    private fun getMainServiceErrorIntentFilter() = IntentFilter(MainEvents.ERROR)
+    private fun getErrorIntentFilter() = IntentFilter(MainEvents.ERROR)
 }

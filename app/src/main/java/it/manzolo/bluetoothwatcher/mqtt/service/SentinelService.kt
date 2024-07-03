@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import androidx.preference.PreferenceManager
-import it.manzolo.bluetoothwatcher.mqtt.enums.WebserviceEvents
+import it.manzolo.bluetoothwatcher.mqtt.enums.MqttEvents
 
 
 class SentinelService : Service() {
@@ -29,7 +29,7 @@ class SentinelService : Service() {
         Log.d(TAG, "onSentinelStartCommand")
         val pref = PreferenceManager.getDefaultSharedPreferences(applicationContext)
         if (pref.getString("mqttUrl", "").toString().isEmpty()) {
-            val intent = Intent(WebserviceEvents.ERROR)
+            val intent = Intent(MqttEvents.ERROR)
             // You can also include some extra data.
             intent.putExtra("message", "No mqtt url in settings")
             applicationContext.sendBroadcast(intent)

@@ -1,6 +1,6 @@
 package it.manzolo.bluetoothwatcher.mqtt.enums
 
-interface WebserviceEvents {
+interface MqttEvents {
     companion object {
         const val ERROR = "Error"
         const val INFO = "Info"

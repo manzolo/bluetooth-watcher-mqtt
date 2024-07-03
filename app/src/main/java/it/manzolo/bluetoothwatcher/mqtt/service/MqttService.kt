@@ -25,10 +25,12 @@ class MqttService : Service() {
     companion object {
         val TAG: String = MqttService::class.java.simpleName
         private const val MQTT_CLIENT_ID = "bluetooth_watcher"
+        private const val MAX_RECONNECT_ATTEMPTS = 1 // Numero massimo di tentativi di riconnessione
     }
 
     private lateinit var mqttClient: MqttClient
     private val executorService = Executors.newFixedThreadPool(6) // Pool di thread con 6 thread
+    private var reconnectAttempts = 0 // Contatore di tentativi di riconnessione
 
     override fun onCreate() {
         super.onCreate()
@@ -90,6 +92,14 @@ class MqttService : Service() {
 
             val brokerUrl = "tcp://$mqttUrl:$mqttPort"
             mqttClient = MqttClient(brokerUrl, MQTT_CLIENT_ID, MemoryPersistence())
+            connectMqttClient(userName, password)
+        } catch (e: MqttException) {
+            Log.e(TAG, "MQTT Connection Exception: ${e.message}")
+        }
+    }
+
+    private fun connectMqttClient(userName: String, password: String?) {
+        try {
             val options = MqttConnectOptions().apply {
                 isCleanSession = true
                 this.userName = userName
@@ -99,8 +109,11 @@ class MqttService : Service() {
             }
 
             mqttClient.connect(options)
+            reconnectAttempts = 0 // Resetta il contatore dopo una connessione riuscita
+
         } catch (e: MqttException) {
             Log.e(TAG, "MQTT Connection Exception: ${e.message}")
+            handleReconnect()
         }
     }
 
@@ -108,7 +121,7 @@ class MqttService : Service() {
         try {
             if (!mqttClient.isConnected) {
                 Log.d(TAG, "MQTT client not connected. Reconnecting...")
-                setupMqttClient()
+                handleReconnect()
             }
 
             val bp = getDeviceBatteryPercentage(context)
@@ -136,12 +149,7 @@ class MqttService : Service() {
             Log.e(TAG, "MQTT Exception: ${e.message}")
             handleException(context, "MQTT Exception: $e")
             e.printStackTrace()
-            reconnectAndRetry(
-                context,
-                device,
-                volt,
-                temp
-            ) // Tentativo di riconnessione e ripubblicazione
+            handleReconnect()
         } catch (e: Exception) {
             Log.e(TAG, "Exception: ${e.message}")
             handleException(context, "Exception: $e")
@@ -149,10 +157,18 @@ class MqttService : Service() {
         }
     }
 
-    private fun reconnectAndRetry(context: Context, device: String, volt: String, temp: String) {
+    private fun handleReconnect() {
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++
+            reconnectAndRetry()
+        } else {
+            Log.e(TAG, "Reached maximum reconnect attempts.")
+        }
+    }
+
+    private fun reconnectAndRetry() {
         try {
             setupMqttClient()
-            handleMqttPublish(context, device, volt, temp)
         } catch (e: MqttException) {
             Log.e(TAG, "Reconnection attempt failed: ${e.message}")
         }
