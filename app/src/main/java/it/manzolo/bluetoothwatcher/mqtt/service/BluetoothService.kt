@@ -97,7 +97,7 @@ class BluetoothService : Service() {
             startForegroundService()
         }
         // Logica per gestire i comandi di avvio
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {

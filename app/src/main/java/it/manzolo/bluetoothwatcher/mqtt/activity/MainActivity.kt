@@ -1,12 +1,11 @@
 package it.manzolo.bluetoothwatcher.mqtt.activity
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -21,13 +20,11 @@ import it.manzolo.bluetoothwatcher.mqtt.App
 import it.manzolo.bluetoothwatcher.mqtt.R
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseHelper
 import it.manzolo.bluetoothwatcher.mqtt.database.DatabaseLog
-import it.manzolo.bluetoothwatcher.mqtt.device.getDeviceBatteryPercentage
 import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.DatabaseEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.LocationEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.WebserviceEvents
-import it.manzolo.bluetoothwatcher.mqtt.error.UnCaughtExceptionHandler
 import it.manzolo.bluetoothwatcher.mqtt.log.BluetoothWatcherLog
 import it.manzolo.bluetoothwatcher.mqtt.log.MyRecyclerViewAdapter
 import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothService
@@ -40,6 +37,16 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 0
         private const val MAX_LOG_ITEMS = 16
+
+        // Costanti per le autorizzazioni
+        private val PERMISSIONS = arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.BLUETOOTH_SCAN,
+            //Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        )
     }
 
     private val logList: ArrayList<BluetoothWatcherLog> = ArrayList(MAX_LOG_ITEMS)
@@ -53,22 +60,64 @@ class MainActivity : AppCompatActivity() {
 
         setupPermissions()
         setupRecyclerView()
-
         registerLocalBroadcast()
 
         logList.add(0, BluetoothWatcherLog(Date.now(), "System ready", MainEvents.INFO))
-        PreferenceManager.getDefaultSharedPreferences(applicationContext).edit()
-            .putBoolean("enabled", true).apply()
+        PreferenceManager.getDefaultSharedPreferences(applicationContext)
+            .edit()
+            .putBoolean("enabled", true)
+            .apply()
 
         App.cancelAllWorkers(this)
+        scheduleServices()
+    }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        applicationContext.unregisterReceiver(localBroadcastReceiver)
+    }
+
+    // Funzione per gestire il setup delle autorizzazioni
+    private fun setupPermissions() {
+        ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_REQUEST_CODE)
+    }
+
+    // Funzione per avviare tutti i servizi necessari
+    private fun scheduleServices() {
         App.scheduleBluetoothService(this)
         App.scheduleLocationService(this)
 
-        val serviceIntent = Intent(this, MqttService::class.java)
-        startService(serviceIntent)
+        startService(Intent(this, MqttService::class.java))
+    }
 
-        //Thread.setDefaultUncaughtExceptionHandler(UnCaughtExceptionHandler(this))
+    // Funzione per mostrare un dialog di conferma
+    private fun showConfirmationDialog(
+        title: String,
+        message: String,
+        onClickListener: DialogInterface.OnClickListener
+    ) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("YES", onClickListener)
+            .setNegativeButton("NO") { _, _ -> }
+            .create()
+            .show()
+    }
+
+    // Funzione per pulire il log
+    private fun clearLog() {
+        val size = logList.size
+        logList.clear()
+
+        DatabaseLog(applicationContext).apply {
+            open()
+            clear()
+            close()
+        }
+
+        logViewAdapter.notifyItemRangeRemoved(0, size)
+        Toast.makeText(applicationContext, "Log Cleared", Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -129,20 +178,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupPermissions() {
-        val permissions = arrayOf(
-            android.Manifest.permission.ACCESS_FINE_LOCATION,
-            android.Manifest.permission.ACCESS_COARSE_LOCATION,
-            android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            android.Manifest.permission.BLUETOOTH_SCAN,
-            android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
-
-        )
-        ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE)
-
-    }
-
     private fun setupRecyclerView() {
         recyclerView = findViewById(R.id.myRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -153,9 +188,6 @@ class MainActivity : AppCompatActivity() {
     private fun registerLocalBroadcast() {
         val intentFilters = arrayOf(
             getConnectionErrorLocalIntentFilter(),
-            getWebserviceDataSentLocalIntentFilter(),
-            getWebserviceErrorDataSentLocalIntentFilter(),
-            getWebserviceInfoDataSentLocalIntentFilter(),
             getLogIntentFilter(),
             getDebugLocalIntentFilter(),
             getDatabaseErrorIntentFilter(),
@@ -243,39 +275,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showConfirmationDialog(
-        title: String,
-        message: String,
-        onClickListener: DialogInterface.OnClickListener
-    ) {
-        AlertDialog.Builder(this).apply {
-            setTitle(title)
-            setMessage(message)
-            setPositiveButton("YES", onClickListener)
-            setNegativeButton("NO") { _, _ -> }
-        }.create().show()
-    }
-
-    private fun clearLog() {
-        val size = logList.size
-        logList.clear()
-        DatabaseLog(applicationContext).apply {
-            open()
-            clear()
-            close()
-        }
-        logViewAdapter.notifyItemRangeRemoved(0, size)
-        Toast.makeText(applicationContext, "Log Cleared", Toast.LENGTH_SHORT).show()
-    }
-
-    // Intent filters
+    // Funzioni per ottenere gli intent filters
     private fun getConnectionErrorLocalIntentFilter() = IntentFilter(BluetoothEvents.ERROR)
-
-    private fun getWebserviceDataSentLocalIntentFilter() = IntentFilter(WebserviceEvents.DATA_SENT)
-
-    private fun getWebserviceErrorDataSentLocalIntentFilter() = IntentFilter(WebserviceEvents.ERROR)
-
-    private fun getWebserviceInfoDataSentLocalIntentFilter() = IntentFilter(WebserviceEvents.INFO)
 
     private fun getDebugLocalIntentFilter() = IntentFilter(MainEvents.DEBUG)
 
@@ -283,16 +284,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun getLocationChangedIntentFilter() = IntentFilter(LocationEvents.LOCATION_CHANGED)
 
-    private fun getMainServiceIntentFilter() = IntentFilter(MainEvents.BROADCAST)
-
     private fun getLogIntentFilter() = IntentFilter(MainEvents.BROADCAST_LOG)
+
+    private fun getMainServiceIntentFilter() = IntentFilter(MainEvents.BROADCAST)
 
     private fun getMainServiceInfoIntentFilter() = IntentFilter(MainEvents.INFO)
 
     private fun getMainServiceErrorIntentFilter() = IntentFilter(MainEvents.ERROR)
-
-    override fun onDestroy() {
-        super.onDestroy()
-        applicationContext.unregisterReceiver(localBroadcastReceiver)
-    }
 }

@@ -8,10 +8,10 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.IBinder
+import android.util.Log
 import androidx.preference.PreferenceManager
 import it.manzolo.bluetoothwatcher.mqtt.device.getDeviceBatteryPercentage
 import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
-import it.manzolo.bluetoothwatcher.mqtt.enums.DatabaseEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
@@ -19,6 +19,7 @@ import org.eclipse.paho.client.mqttv3.MqttException
 import org.eclipse.paho.client.mqttv3.MqttMessage
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import org.json.JSONObject
+import java.util.concurrent.Executors
 
 class MqttService : Service() {
     companion object {
@@ -26,110 +27,160 @@ class MqttService : Service() {
         private const val MQTT_CLIENT_ID = "bluetooth_watcher"
     }
 
+    private lateinit var mqttClient: MqttClient
+    private val executorService = Executors.newFixedThreadPool(6) // Pool di thread con 6 thread
+
+    override fun onCreate() {
+        super.onCreate()
+        registerLocalBroadcast()
+        setupMqttClient()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        mqttClient.disconnect()
+        executorService.shutdown()
+        unregisterReceiver(localBroadcastReceiver)
+    }
+
     private val localBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
-            intent?.let { intent ->
-                when (intent.action) {
+            intent?.let {
+                when (it.action) {
                     BluetoothEvents.DATA_RETRIEVED -> {
-                        //Log.e("ManzoloWHY",intent.getStringExtra("message")!!)
-                        val intentLog = Intent(MainEvents.BROADCAST_LOG).apply {
-                            putExtra("message", intent.getStringExtra("message")!!)
+                        val message = it.getStringExtra("message") ?: return
+                        val device = it.getStringExtra("device") ?: return
+                        val volt = it.getStringExtra("volt") ?: return
+                        val temp = it.getStringExtra("tempC") ?: return
+
+                        Log.d(TAG, message)
+
+                        val logIntent = Intent(MainEvents.BROADCAST_LOG).apply {
+                            putExtra("message", message)
                             putExtra("type", MainEvents.INFO)
                         }
-                        sendBroadcast(intentLog)
+                        context.sendBroadcast(logIntent)
+
                         if (isInternetAvailable(context)) {
-                            val device = intent.getStringExtra("device")!!
-                            val volt = intent.getStringExtra("volt")!!
-                            val temp = intent.getStringExtra("tempC")!!
-
-                            try {
-                                val bp = getDeviceBatteryPercentage(applicationContext)
-                                val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                                val longitude = preferences.getString("longitude", "N/A")
-                                val latitude = preferences.getString("latitude", "N/A")
-
-                                val jsonObject = JSONObject().apply {
-                                    put("voltage", volt)
-                                    put("temperature", temp)
-                                    put("tracker_battery", bp.toString())
-                                    put("longitude", longitude)
-                                    put("latitude", latitude)
-                                }
-
-                                val mqttUrl =
-                                    preferences
-                                        .getString("mqttUrl", "") ?: ""
-                                val mqttPort =
-                                    preferences
-                                        .getString("mqttPort", "") ?: ""
-                                val userName =
-                                    preferences
-                                        .getString("mqttUsername", "") ?: ""
-                                val password =
-                                    preferences
-                                        .getString("mqttPassword", "")
-
-                                val brokerUrl = "tcp://$mqttUrl:$mqttPort"
-                                val topic = "${device.replace(":", "").lowercase()}/attributes"
-                                val client =
-                                    MqttClient(brokerUrl, MQTT_CLIENT_ID, MemoryPersistence())
-                                val options = MqttConnectOptions().apply {
-                                    isCleanSession = true
-                                    this.userName = userName
-                                    password?.let { setPassword(it.toCharArray()) }
-                                }
-
-                                client.connect(options)
-                                client.publish(
-                                    topic,
-                                    MqttMessage(jsonObject.toString().toByteArray(Charsets.UTF_8))
-                                )
-                                client.disconnect()
-
-                            } catch (e: MqttException) {
-                                handleException("MQTT Exception: ${e.message}")
-                            } catch (e: Exception) {
-                                handleException("Exception: ${e.message}")
+                            executorService.submit {
+                                handleMqttPublish(context, device, volt, temp)
                             }
                         } else {
-                            handleException("MQTT Exception: No internet available")
+                            handleException(context, "MQTT Exception: No internet available")
                         }
                     }
+
+                    else -> {}
                 }
             }
         }
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        val filter = IntentFilter().apply {
-            addAction(BluetoothEvents.DATA_RETRIEVED)
+    private fun setupMqttClient() {
+        try {
+            val preferences = PreferenceManager.getDefaultSharedPreferences(this)
+            val mqttUrl = preferences.getString("mqttUrl", "") ?: ""
+            val mqttPort = preferences.getString("mqttPort", "") ?: ""
+            val userName = preferences.getString("mqttUsername", "") ?: ""
+            val password = preferences.getString("mqttPassword", "")
+
+            val brokerUrl = "tcp://$mqttUrl:$mqttPort"
+            mqttClient = MqttClient(brokerUrl, MQTT_CLIENT_ID, MemoryPersistence())
+            val options = MqttConnectOptions().apply {
+                isCleanSession = true
+                this.userName = userName
+                password?.let { setPassword(it.toCharArray()) }
+                connectionTimeout = 7 // Timeout di connessione di 7 secondi
+                keepAliveInterval = 10 // Intervallo di keep-alive
+            }
+
+            mqttClient.connect(options)
+        } catch (e: MqttException) {
+            Log.e(TAG, "MQTT Connection Exception: ${e.message}")
         }
-        registerReceiver(localBroadcastReceiver, filter)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(localBroadcastReceiver)
+    private fun handleMqttPublish(context: Context, device: String, volt: String, temp: String) {
+        try {
+            if (!mqttClient.isConnected) {
+                Log.d(TAG, "MQTT client not connected. Reconnecting...")
+                setupMqttClient()
+            }
+
+            val bp = getDeviceBatteryPercentage(context)
+            val preferences = PreferenceManager.getDefaultSharedPreferences(context)
+            val longitude = preferences.getString("longitude", "N/A") ?: "N/A"
+            val latitude = preferences.getString("latitude", "N/A") ?: "N/A"
+
+            val jsonObject = JSONObject().apply {
+                put("voltage", volt)
+                put("temperature", temp)
+                put("tracker_battery", bp.toString())
+                put("longitude", longitude)
+                put("latitude", latitude)
+            }
+
+            val topic = "${device.replace(":", "").lowercase()}/attributes"
+            mqttClient.publish(
+                topic,
+                MqttMessage(jsonObject.toString().toByteArray(Charsets.UTF_8))
+            )
+
+            Log.d(TAG, jsonObject.toString())
+
+        } catch (e: MqttException) {
+            Log.e(TAG, "MQTT Exception: ${e.message}")
+            handleException(context, "MQTT Exception: $e")
+            e.printStackTrace()
+            reconnectAndRetry(
+                context,
+                device,
+                volt,
+                temp
+            ) // Tentativo di riconnessione e ripubblicazione
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception: ${e.message}")
+            handleException(context, "Exception: $e")
+            e.printStackTrace()
+        }
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
+    private fun reconnectAndRetry(context: Context, device: String, volt: String, temp: String) {
+        try {
+            setupMqttClient()
+            handleMqttPublish(context, device, volt, temp)
+        } catch (e: MqttException) {
+            Log.e(TAG, "Reconnection attempt failed: ${e.message}")
+        }
     }
 
-    private fun handleException(errorMessage: String) {
-        applicationContext.sendBroadcast(Intent(DatabaseEvents.ERROR).apply {
-            putExtra("message", errorMessage)
-        })
+    private fun handleException(context: Context, message: String) {
+        Log.e(TAG, message)
+        val logIntent = Intent(MainEvents.BROADCAST_LOG).apply {
+            putExtra("message", message)
+            putExtra("type", MainEvents.ERROR)
+        }
+        context.sendBroadcast(logIntent)
     }
 
     private fun isInternetAvailable(context: Context): Boolean {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = connectivityManager.activeNetwork ?: return false
-        val networkCapabilities =
-            connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-        return networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
+    private fun registerLocalBroadcast() {
+        val intentFilter = IntentFilter(BluetoothEvents.DATA_RETRIEVED)
+        applicationContext.registerReceiver(localBroadcastReceiver, intentFilter)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
+    }
 }
