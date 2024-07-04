@@ -8,7 +8,7 @@ android {
         applicationId "it.manzolo.bluetoothwatcher.mqtt"
         minSdkVersion 26
         versionCode 1
-        versionName "1.3.2"
+        versionName "1.3.3"
     }
     buildTypes {
         release {

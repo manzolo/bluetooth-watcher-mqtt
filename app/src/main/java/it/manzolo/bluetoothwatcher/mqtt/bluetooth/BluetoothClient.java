@@ -34,15 +34,44 @@ public final class BluetoothClient {
     private byte[] readBuffer;
     private final String deviceAddress;
 
-    private final BroadcastReceiver closeBluetoothReceiver = new BroadcastReceiver() {
+    @SuppressLint("MissingPermission")
+    private boolean open() throws Exception {
+        this.findBT();
+        int retryCount = 0;
+        final int maxRetries = 2;
+        final long retryDelay = 1000; // 1 second delay between retries
+
+        while (retryCount < maxRetries) {
+            try {
+                Log.d(TAG, "Connecting to " + bluetoothSocket.getRemoteDevice().getAddress() + " (attempt " + (retryCount + 1) + ")");
+                bluetoothSocket.connect();
+                Log.d(TAG, "Connected");
+                bluetoothOutputStream = bluetoothSocket.getOutputStream();
+                bluetoothInputStream = bluetoothSocket.getInputStream();
+                return true;
+            } catch (IOException e) {
+                Log.e(TAG, "Error during connection (attempt " + (retryCount + 1) + ")", e);
+                if (retryCount == maxRetries - 1) {
+                    throw new Exception("Unable to connect to " + this.deviceAddress + " after " + maxRetries + " attempts", e);
+                } else {
+                    // Wait before retrying
+                    try {
+                        Thread.sleep(retryDelay);
+                    } catch (InterruptedException ie) {
+                        Log.e(TAG, "Retry delay interrupted", ie);
+                        Thread.currentThread().interrupt();
+                        throw new Exception("Retry delay interrupted", ie);
+                    }
+                    retryCount++;
+                }
+            }
+        }
+        return false; // Should never reach here
+    }    private final BroadcastReceiver closeBluetoothReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Try closing Bluetooth...");
-            try {
-                close();
-            } catch (IOException e) {
-                Log.e(TAG, e.getMessage(), e);
-            }
+            close();
         }
     };
 
@@ -93,22 +122,57 @@ public final class BluetoothClient {
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private boolean open() throws Exception {
-        this.findBT();
-        try {
-            Log.d(TAG, "Connecting to " + bluetoothSocket.getRemoteDevice().getAddress());
-            bluetoothSocket.connect();
-            Log.d(TAG, "Connected");
-            bluetoothOutputStream = bluetoothSocket.getOutputStream();
-            bluetoothInputStream = bluetoothSocket.getInputStream();
-            return true;
-        } catch (IOException e) {
-            Log.e(TAG, "Error during connection", e);
-            throw new Exception("Unable to connect to " + this.deviceAddress, e);
-            //close();
+    private void close() {
+        stopWorker = true;
 
+        // Chiudi l'OutputStream
+        if (bluetoothOutputStream != null) {
+            try {
+                bluetoothOutputStream.close();
+                Log.d(TAG, "OutputStream closed successfully");
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing OutputStream: " + e.getMessage());
+            } finally {
+                bluetoothOutputStream = null;
+            }
         }
+
+        // Chiudi l'InputStream
+        if (bluetoothInputStream != null) {
+            try {
+                bluetoothInputStream.close();
+                Log.d(TAG, "InputStream closed successfully");
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing InputStream: " + e.getMessage());
+            } finally {
+                bluetoothInputStream = null;
+            }
+        }
+
+        // Chiudi il Socket
+        if (bluetoothSocket != null) {
+            if (bluetoothSocket.isConnected()) {
+                try {
+                    bluetoothSocket.close();
+                    Log.d(TAG, "Socket closed successfully");
+                } catch (IOException e) {
+                    Log.e(TAG, "Error closing socket: " + e.getMessage());
+                }
+            } else {
+                Log.d(TAG, "Socket is already closed or not connected");
+            }
+            bluetoothSocket = null;
+        }
+
+        // Unregister receiver
+        try {
+            context.unregisterReceiver(closeBluetoothReceiver);
+            Log.d(TAG, "Receiver unregistered successfully");
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Receiver not registered: " + e.getMessage());
+        }
+
+        Log.d(TAG, "Bluetooth Closed!");
     }
 
     private void dataDump() {
@@ -179,26 +243,6 @@ public final class BluetoothClient {
         }
     }
 
-    private void close() throws IOException {
-        stopWorker = true;
-        if (bluetoothOutputStream != null) {
-            bluetoothOutputStream.close();
-        }
-        if (bluetoothInputStream != null) {
-            bluetoothInputStream.close();
-        }
-        if (bluetoothSocket != null && bluetoothSocket.isConnected()) {
-            try {
-                bluetoothSocket.close();
-                Log.d(TAG, "Socket closed successfully");
-            } catch (IOException e) {
-                Log.e(TAG, "Error closing socket: " + e.getMessage());
-            }
-        } else {
-            Log.d(TAG, "Socket is already closed or not connected");
-        }
 
-        context.unregisterReceiver(closeBluetoothReceiver);
-        Log.d(TAG, "Bluetooth Closed!");
-    }
+
 }
