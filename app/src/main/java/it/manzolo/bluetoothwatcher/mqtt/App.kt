@@ -14,7 +14,6 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
 import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker
-import it.manzolo.bluetoothwatcher.mqtt.service.LocationService
 import it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.SentinelService
 import it.manzolo.bluetoothwatcher.mqtt.utils.HandlerList
@@ -22,11 +21,15 @@ import java.util.concurrent.TimeUnit
 
 class App : Application() {
     companion object {
-        private const val BLUETOOTH_WORKER_TAG = "it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker"
-        private const val LOCATION_WORKER_TAG = "it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker"
+        private const val BLUETOOTH_WORKER_TAG =
+            "it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker"
+        private const val LOCATION_WORKER_TAG =
+            "it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker"
+
         fun getHandlers(): ArrayList<HandlerList> {
             return handlers
         }
+
         fun cancelAllWorkers(context: Context) {
             WorkManager.getInstance(context).cancelAllWorkByTag(BLUETOOTH_WORKER_TAG)
             WorkManager.getInstance(context).cancelAllWorkByTag(LOCATION_WORKER_TAG)
@@ -64,7 +67,11 @@ class App : Application() {
             val debug = preferences.getBoolean("debugApp", false)
 
             if (debug) {
-                Toast.makeText(context, "Start bluetooth service every $seconds seconds", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Start bluetooth service every $seconds seconds",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
 
             val intent = Intent(MainEvents.BROADCAST)
@@ -138,7 +145,8 @@ class App : Application() {
         }
 
         fun findHandler(
-                name: Class<*>, handlers: List<HandlerList>): HandlerList? {
+            name: Class<*>, handlers: List<HandlerList>
+        ): HandlerList? {
             val iterator: Iterator<HandlerList> = handlers.iterator()
             while (iterator.hasNext()) {
                 val currentHandler: HandlerList = iterator.next()

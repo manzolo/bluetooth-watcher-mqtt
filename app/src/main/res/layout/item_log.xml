@@ -5,8 +5,8 @@
     android:background="@drawable/border"
     android:clickable="true"
     android:focusable="true"
-    android:orientation="vertical"
     android:gravity="center_vertical"
+    android:orientation="vertical"
     android:scrollbars="vertical">
 
     <LinearLayout
@@ -34,8 +34,8 @@
         android:id="@+id/icon_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingVertical="5dp"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingVertical="5dp">
 
         <RelativeLayout
             android:id="@+id/icon_back"

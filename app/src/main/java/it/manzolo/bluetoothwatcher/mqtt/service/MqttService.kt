@@ -13,7 +13,12 @@ import androidx.preference.PreferenceManager
 import it.manzolo.bluetoothwatcher.mqtt.device.getDeviceBatteryPercentage
 import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
 import org.eclipse.paho.client.mqttv3.MqttException
@@ -116,7 +121,12 @@ class MqttService : Service() {
         }
     }
 
-    private suspend fun handleMqttPublish(context: Context, device: String, volt: String, temp: String) {
+    private suspend fun handleMqttPublish(
+        context: Context,
+        device: String,
+        volt: String,
+        temp: String
+    ) {
         withContext(Dispatchers.IO) {
             try {
                 if (!mqttClient.isConnected) {
@@ -139,7 +149,10 @@ class MqttService : Service() {
                 }
 
                 val topic = "${device.replace(":", "").lowercase()}/attributes"
-                mqttClient.publish(topic, MqttMessage(jsonObject.toString().toByteArray(Charsets.UTF_8)))
+                mqttClient.publish(
+                    topic,
+                    MqttMessage(jsonObject.toString().toByteArray(Charsets.UTF_8))
+                )
 
                 Log.d(TAG, jsonObject.toString())
             } catch (e: MqttException) {

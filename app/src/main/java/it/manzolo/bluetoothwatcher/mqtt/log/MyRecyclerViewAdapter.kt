@@ -10,9 +10,9 @@ import androidx.recyclerview.widget.RecyclerView
 import it.manzolo.bluetoothwatcher.mqtt.R
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
 import it.manzolo.bluetoothwatcher.mqtt.log.MyRecyclerViewAdapter.MyViewHolder
-import java.util.*
 
-class MyRecyclerViewAdapter(private val mLogs: ArrayList<BluetoothWatcherLog>) : RecyclerView.Adapter<MyViewHolder>() {
+class MyRecyclerViewAdapter(private val mLogs: ArrayList<BluetoothWatcherLog>) :
+    RecyclerView.Adapter<MyViewHolder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MyViewHolder {
         //Inflate RecyclerView row
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_log, parent, false)
@@ -31,10 +31,12 @@ class MyRecyclerViewAdapter(private val mLogs: ArrayList<BluetoothWatcherLog>) :
                 holder.textViewMessage.setTextColor(Color.RED)
                 holder.imageViewType.setImageResource(android.R.drawable.presence_busy)
             }
+
             MainEvents.INFO -> {
                 holder.textViewMessage.setTextColor(Color.BLACK)
                 holder.imageViewType.setImageResource(0)
             }
+
             MainEvents.WARNING -> {
                 holder.textViewMessage.setTextColor(Color.BLACK)
                 holder.imageViewType.setImageResource(android.R.drawable.presence_invisible)

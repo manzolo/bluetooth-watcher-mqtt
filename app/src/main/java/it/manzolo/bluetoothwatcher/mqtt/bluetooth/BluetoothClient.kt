@@ -1,248 +1,264 @@
-package it.manzolo.bluetoothwatcher.mqtt.bluetooth;
+package it.manzolo.bluetoothwatcher.mqtt.bluetooth
 
-import android.annotation.SuppressLint;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.util.Log;
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothSocket
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.util.Log
+import it.manzolo.bluetoothwatcher.mqtt.device.DeviceInfo
+import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
+import it.manzolo.bluetoothwatcher.mqtt.utils.Date.now
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.Objects
+import java.util.UUID
+import kotlin.concurrent.Volatile
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Objects;
-import java.util.UUID;
-
-import it.manzolo.bluetoothwatcher.mqtt.device.DeviceInfo;
-import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents;
-import it.manzolo.bluetoothwatcher.mqtt.utils.Date;
-
-public final class BluetoothClient {
-    public static final String TAG = "BluetoothClient";
-    private static final UUID UUID_SERIAL_PORT_SERVICE = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private static final int BUFFER_LENGTH = 130;
-
-    private volatile boolean stopWorker;
-    private final Context context;
-    private BluetoothSocket bluetoothSocket;
-    private OutputStream bluetoothOutputStream;
-    private InputStream bluetoothInputStream;
-    private int readBufferPosition;
-    private byte[] readBuffer;
-    private final String deviceAddress;
+class BluetoothClient(private val context: Context, private val deviceAddress: String) {
+    @Volatile
+    private var stopWorker = false
+    private var bluetoothSocket: BluetoothSocket? = null
+    private var bluetoothOutputStream: OutputStream? = null
+    private var bluetoothInputStream: InputStream? = null
+    private var readBufferPosition = 0
+    private lateinit var readBuffer: ByteArray
 
     @SuppressLint("MissingPermission")
-    private boolean open() throws Exception {
-        this.findBT();
-        int retryCount = 0;
-        final int maxRetries = 2;
-        final long retryDelay = 1000; // 1 second delay between retries
+    @Throws(Exception::class)
+    private fun open(): Boolean {
+        this.findBT()
+        var retryCount = 0
+        val maxRetries = 2
+        val retryDelay: Long = 1000 // 1 second delay between retries
 
         while (retryCount < maxRetries) {
             try {
-                Log.d(TAG, "Connecting to " + bluetoothSocket.getRemoteDevice().getAddress() + " (attempt " + (retryCount + 1) + ")");
-                bluetoothSocket.connect();
-                Log.d(TAG, "Connected");
-                bluetoothOutputStream = bluetoothSocket.getOutputStream();
-                bluetoothInputStream = bluetoothSocket.getInputStream();
-                return true;
-            } catch (IOException e) {
-                Log.e(TAG, "Error during connection (attempt " + (retryCount + 1) + ")", e);
+                Log.d(
+                    TAG,
+                    "Connecting to " + bluetoothSocket!!.remoteDevice.address + " (attempt " + (retryCount + 1) + ")"
+                )
+                bluetoothSocket!!.connect()
+                Log.d(TAG, "Connected")
+                bluetoothOutputStream = bluetoothSocket!!.outputStream
+                bluetoothInputStream = bluetoothSocket!!.inputStream
+                return true
+            } catch (e: IOException) {
+                Log.e(TAG, "Error during connection (attempt " + (retryCount + 1) + ")", e)
                 if (retryCount == maxRetries - 1) {
-                    throw new Exception("Unable to connect to " + this.deviceAddress + " after " + maxRetries + " attempts", e);
+                    throw Exception(
+                        "Unable to connect to " + this.deviceAddress + " after " + maxRetries + " attempts",
+                        e
+                    )
                 } else {
                     // Wait before retrying
                     try {
-                        Thread.sleep(retryDelay);
-                    } catch (InterruptedException ie) {
-                        Log.e(TAG, "Retry delay interrupted", ie);
-                        Thread.currentThread().interrupt();
-                        throw new Exception("Retry delay interrupted", ie);
+                        Thread.sleep(retryDelay)
+                    } catch (ie: InterruptedException) {
+                        Log.e(TAG, "Retry delay interrupted", ie)
+                        Thread.currentThread().interrupt()
+                        throw Exception("Retry delay interrupted", ie)
                     }
-                    retryCount++;
+                    retryCount++
                 }
             }
         }
-        return false; // Should never reach here
-    }    private final BroadcastReceiver closeBluetoothReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Try closing Bluetooth...");
-            close();
-        }
-    };
-
-    public BluetoothClient(Context context, String deviceAddress) {
-        this.deviceAddress = deviceAddress;
-        this.context = context;
-        context.registerReceiver(closeBluetoothReceiver, new IntentFilter(BluetoothEvents.CLOSECONNECTION));
+        return false // Should never reach here
     }
 
-    public void retrieveData() throws Exception {
+    private val closeBluetoothReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Log.d(TAG, "Try closing Bluetooth...")
+            close()
+        }
+    }
+
+    init {
+        context.registerReceiver(
+            closeBluetoothReceiver,
+            IntentFilter(BluetoothEvents.CLOSECONNECTION)
+        )
+    }
+
+    @Throws(Exception::class)
+    fun retrieveData() {
         try {
             if (this.open()) {
-                Thread.sleep(100);
-                this.sendCommand((byte) 0xd0, "setBacklight");
-                Thread.sleep(100);
-                this.sendCommand((byte) 0xe0, "setScreenTimeout");
-                Thread.sleep(100);
-                this.dataDump();
+                Thread.sleep(100)
+                this.sendCommand(0xd0.toByte(), "setBacklight")
+                Thread.sleep(100)
+                this.sendCommand(0xe0.toByte(), "setScreenTimeout")
+                Thread.sleep(100)
+                this.dataDump()
             }
-            Thread.sleep(100);
-        } catch (Exception e) {
-            this.close();
-            throw e;
+            Thread.sleep(100)
+        } catch (e: Exception) {
+            this.close()
+            throw e
         }
     }
 
     @SuppressLint("MissingPermission")
-    private void findBT() throws Exception {
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    @Throws(Exception::class)
+    private fun findBT() {
+        val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
-        bluetoothAdapter.cancelDiscovery();
+        bluetoothAdapter.cancelDiscovery()
 
-        if (!bluetoothAdapter.isEnabled()) {
-            throw new Exception("Bluetooth not enabled");
+        if (!bluetoothAdapter.isEnabled) {
+            throw Exception("Bluetooth not enabled")
         }
 
-        BluetoothDevice bluetoothDevice = bluetoothAdapter.getRemoteDevice(this.deviceAddress);
-        Log.d(TAG, "Bluetooth Device Found: " + bluetoothDevice.getAddress());
-        this.bluetoothSocket = bluetoothDevice.createRfcommSocketToServiceRecord(UUID_SERIAL_PORT_SERVICE);
+        val bluetoothDevice = bluetoothAdapter.getRemoteDevice(this.deviceAddress)
+        Log.d(TAG, "Bluetooth Device Found: " + bluetoothDevice.address)
+        this.bluetoothSocket = bluetoothDevice.createRfcommSocketToServiceRecord(
+            UUID_SERIAL_PORT_SERVICE
+        )
     }
 
-    private void sendCommand(byte command, String commandName) {
+    private fun sendCommand(command: Byte, commandName: String) {
         try {
-            Log.d(TAG, commandName);
-            this.bluetoothOutputStream.write(command);
-        } catch (IOException e) {
-            Log.e(TAG, "Error in " + commandName, e);
+            Log.d(TAG, commandName)
+            bluetoothOutputStream!!.write(command.toInt())
+        } catch (e: IOException) {
+            Log.e(TAG, "Error in $commandName", e)
         }
     }
 
-    private void close() {
-        stopWorker = true;
+    private fun close() {
+        stopWorker = true
 
         // Chiudi l'OutputStream
         if (bluetoothOutputStream != null) {
             try {
-                bluetoothOutputStream.close();
-                Log.d(TAG, "OutputStream closed successfully");
-            } catch (IOException e) {
-                Log.e(TAG, "Error closing OutputStream: " + e.getMessage());
+                bluetoothOutputStream!!.close()
+                Log.d(TAG, "OutputStream closed successfully")
+            } catch (e: IOException) {
+                Log.e(TAG, "Error closing OutputStream: " + e.message)
             } finally {
-                bluetoothOutputStream = null;
+                bluetoothOutputStream = null
             }
         }
 
         // Chiudi l'InputStream
         if (bluetoothInputStream != null) {
             try {
-                bluetoothInputStream.close();
-                Log.d(TAG, "InputStream closed successfully");
-            } catch (IOException e) {
-                Log.e(TAG, "Error closing InputStream: " + e.getMessage());
+                bluetoothInputStream!!.close()
+                Log.d(TAG, "InputStream closed successfully")
+            } catch (e: IOException) {
+                Log.e(TAG, "Error closing InputStream: " + e.message)
             } finally {
-                bluetoothInputStream = null;
+                bluetoothInputStream = null
             }
         }
 
         // Chiudi il Socket
         if (bluetoothSocket != null) {
-            if (bluetoothSocket.isConnected()) {
+            if (bluetoothSocket!!.isConnected) {
                 try {
-                    bluetoothSocket.close();
-                    Log.d(TAG, "Socket closed successfully");
-                } catch (IOException e) {
-                    Log.e(TAG, "Error closing socket: " + e.getMessage());
+                    bluetoothSocket!!.close()
+                    Log.d(TAG, "Socket closed successfully")
+                } catch (e: IOException) {
+                    Log.e(TAG, "Error closing socket: " + e.message)
                 }
             } else {
-                Log.d(TAG, "Socket is already closed or not connected");
+                Log.d(TAG, "Socket is already closed or not connected")
             }
-            bluetoothSocket = null;
+            bluetoothSocket = null
         }
 
         // Unregister receiver
         try {
-            context.unregisterReceiver(closeBluetoothReceiver);
-            Log.d(TAG, "Receiver unregistered successfully");
-        } catch (IllegalArgumentException e) {
-            Log.e(TAG, "Receiver not registered: " + e.getMessage());
+            context.unregisterReceiver(closeBluetoothReceiver)
+            Log.d(TAG, "Receiver unregistered successfully")
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "Receiver not registered: " + e.message)
         }
 
-        Log.d(TAG, "Bluetooth Closed!");
+        Log.d(TAG, "Bluetooth Closed!")
     }
 
-    private void dataDump() {
+    private fun dataDump() {
         try {
-            Log.d(TAG, "Requesting Bluetooth data...");
-            this.sendCommand((byte) 0xf0, "dataDump");
-            this.listen();
-        } catch (Exception e) {
-            Log.e(TAG, "Error in dataDump", e);
+            Log.d(TAG, "Requesting Bluetooth data...")
+            this.sendCommand(0xf0.toByte(), "dataDump")
+            this.listen()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in dataDump", e)
         }
     }
 
-    private void listen() {
-        readBufferPosition = 0;
-        readBuffer = new byte[BUFFER_LENGTH];
-        stopWorker = false;
+    private fun listen() {
+        readBufferPosition = 0
+        readBuffer = ByteArray(BUFFER_LENGTH)
+        stopWorker = false
 
-        Thread workerThread = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted() && !stopWorker) {
+        val workerThread = Thread {
+            while (!Thread.currentThread().isInterrupted && !stopWorker) {
                 try {
-                    int bytesAvailable = bluetoothInputStream.available();
+                    val bytesAvailable = bluetoothInputStream!!.available()
                     if (bytesAvailable > 0) {
-                        byte[] packetBytes = new byte[bytesAvailable];
-                        int length;
-                        while ((length = bluetoothInputStream.read(packetBytes)) != -1) {
-                            System.arraycopy(packetBytes, 0, readBuffer, readBufferPosition, length);
-                            readBufferPosition += length;
+                        val packetBytes = ByteArray(bytesAvailable)
+                        var length: Int
+                        while ((bluetoothInputStream!!.read(packetBytes)
+                                .also { length = it }) != -1
+                        ) {
+                            System.arraycopy(packetBytes, 0, readBuffer, readBufferPosition, length)
+                            readBufferPosition += length
                             if (readBufferPosition >= BUFFER_LENGTH) {
-                                processBuffer();
-                                break;
+                                processBuffer()
+                                break
                             }
                         }
                     }
-                } catch (IOException ex) {
-                    Log.e(TAG, "Error while listening", ex);
-                    stopWorker = true;
+                } catch (ex: IOException) {
+                    Log.e(TAG, "Error while listening", ex)
+                    stopWorker = true
                 }
             }
-        });
+        }
 
-        workerThread.start();
+        workerThread.start()
     }
 
-    private void processBuffer() {
+    private fun processBuffer() {
         try {
-            DeviceInfo deviceInfo = new DeviceInfo(deviceAddress, readBuffer);
-            Log.d(TAG, "Device: " + deviceInfo.getAddress());
-            Log.d(TAG, deviceInfo.getVolt() + " Volt");
-            Log.d(TAG, deviceInfo.getAmp() + " A");
-            Log.d(TAG, deviceInfo.getmW() + " mW");
-            Log.d(TAG, deviceInfo.getTempC() + "°C");
-            Log.d(TAG, deviceInfo.getTempF() + "°F");
+            val deviceInfo = DeviceInfo(deviceAddress, readBuffer)
+            Log.d(TAG, "Device: " + deviceInfo.address)
+            Log.d(TAG, deviceInfo.volt.toString() + " Volt")
+            Log.d(TAG, deviceInfo.amp.toString() + " A")
+            Log.d(TAG, deviceInfo.getmW().toString() + " mW")
+            Log.d(TAG, deviceInfo.tempC.toString() + "°C")
+            Log.d(TAG, deviceInfo.tempF.toString() + "°F")
 
-            String now = Date.now();
-            Intent intentBt = new Intent(BluetoothEvents.DATA_RETRIEVED);
-            intentBt.putExtra("device", deviceInfo.getAddress());
-            intentBt.putExtra("volt", Objects.requireNonNull(deviceInfo.getVolt()).toString());
-            intentBt.putExtra("data", now);
-            intentBt.putExtra("tempC", Objects.requireNonNull(deviceInfo.getTempC()).toString());
-            intentBt.putExtra("tempF", Objects.requireNonNull(deviceInfo.getTempF()).toString());
-            intentBt.putExtra("amp", Objects.requireNonNull(deviceInfo.getAmp()).toString());
-            intentBt.putExtra("message", deviceInfo.getAddress() + " " + deviceInfo.getVolt().toString() + "v " + deviceInfo.getTempC().toString() + "°");
-            context.sendBroadcast(intentBt);
+            val now = now()
+            val intentBt = Intent(BluetoothEvents.DATA_RETRIEVED)
+            intentBt.putExtra("device", deviceInfo.address)
+            intentBt.putExtra("volt", Objects.requireNonNull(deviceInfo.volt).toString())
+            intentBt.putExtra("data", now)
+            intentBt.putExtra("tempC", Objects.requireNonNull(deviceInfo.tempC).toString())
+            intentBt.putExtra("tempF", Objects.requireNonNull(deviceInfo.tempF).toString())
+            intentBt.putExtra("amp", Objects.requireNonNull(deviceInfo.amp).toString())
+            intentBt.putExtra(
+                "message",
+                deviceInfo.address + " " + deviceInfo.volt.toString() + "v " + deviceInfo.tempC.toString() + "°"
+            )
+            context.sendBroadcast(intentBt)
 
-            context.sendBroadcast(new Intent(BluetoothEvents.CLOSECONNECTION));
-        } catch (Exception e) {
-            Log.e(TAG, "Error processing buffer", e);
+            context.sendBroadcast(Intent(BluetoothEvents.CLOSECONNECTION))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing buffer", e)
         }
     }
 
 
-
+    companion object {
+        const val TAG: String = "BluetoothClient"
+        private val UUID_SERIAL_PORT_SERVICE: UUID =
+            UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+        private const val BUFFER_LENGTH = 130
+    }
 }

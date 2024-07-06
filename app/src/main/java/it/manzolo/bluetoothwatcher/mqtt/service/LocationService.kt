@@ -52,7 +52,8 @@ class LocationService : Service() {
         private const val LOCATION_DISTANCE = 10f
         private const val NOTIFICATION_CHANNEL_ID = "LocationServiceChannel"
         private const val NOTIFICATION_ID = 2
-        const val ACTION_START_FOREGROUND = "it.manzolo.bluetoothwatcher.mqtt.service.action.START_FOREGROUND"
+        const val ACTION_START_FOREGROUND =
+            "it.manzolo.bluetoothwatcher.mqtt.service.action.START_FOREGROUND"
     }
 
     private var mLocationManager: LocationManager? = null
@@ -66,8 +67,15 @@ class LocationService : Service() {
         super.onCreate()
         initializeLocationManager()
         try {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
                 return
             }
             mLocationManager!!.requestLocationUpdates(
@@ -142,7 +150,10 @@ class LocationService : Service() {
                 apply()
             }
 
-            Log.d("LocationService", "Location Changed: ${location.latitude}, ${location.longitude}")
+            Log.d(
+                "LocationService",
+                "Location Changed: ${location.latitude}, ${location.longitude}"
+            )
             val intent = Intent(LocationEvents.LOCATION_CHANGED).apply {
                 putExtra("longitude", location.longitude.toString())
                 putExtra("latitude", location.latitude.toString())
@@ -152,7 +163,9 @@ class LocationService : Service() {
 
         override fun onProviderDisabled(provider: String) {}
         override fun onProviderEnabled(provider: String) {}
+
         @Deprecated("Deprecated in Java")
-        override fun onStatusChanged(provider: String, status: Int, extras: Bundle) {}
+        override fun onStatusChanged(provider: String, status: Int, extras: Bundle) {
+        }
     }
 }

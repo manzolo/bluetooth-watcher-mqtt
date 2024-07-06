@@ -97,6 +97,7 @@ class MainActivity : AppCompatActivity() {
 
         startService(Intent(this, MqttService::class.java))
     }
+
     fun requestBluetooth() {
         // check android 12+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -111,6 +112,7 @@ class MainActivity : AppCompatActivity() {
             requestEnableBluetooth.launch(enableBtIntent)
         }
     }
+
     private val requestEnableBluetooth =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
@@ -126,6 +128,7 @@ class MainActivity : AppCompatActivity() {
                 Log.d("MyTag", "${it.key} = ${it.value}")
             }
         }
+
     // Funzione per mostrare un dialog di conferma
     private fun showConfirmationDialog(
         title: String,
@@ -247,6 +250,7 @@ class MainActivity : AppCompatActivity() {
                         intent.getStringExtra("message")!!,
                         intent.getStringExtra("type")!!
                     )
+
                     MainEvents.INFO, MqttEvents.INFO ->
                         captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
 

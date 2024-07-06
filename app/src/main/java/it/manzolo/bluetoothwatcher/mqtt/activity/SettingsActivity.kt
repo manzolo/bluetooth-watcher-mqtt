@@ -19,14 +19,15 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
         supportFragmentManager
-                .beginTransaction()
-                .replace(R.id.settings, SettingsFragment())
-                .commit()
+            .beginTransaction()
+            .replace(R.id.settings, SettingsFragment())
+            .commit()
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
     }
 
-    class SettingsFragment : PreferenceFragmentCompat(), SharedPreferences.OnSharedPreferenceChangeListener {
+    class SettingsFragment : PreferenceFragmentCompat(),
+        SharedPreferences.OnSharedPreferenceChangeListener {
         private fun serviceEnabled(enabled: Boolean) {
             val intent = Intent(MainEvents.BROADCAST)
 
@@ -76,20 +77,24 @@ class SettingsActivity : AppCompatActivity() {
             val passwordPreference: EditTextPreference? = findPreference("webservicePassword")
 
             passwordPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                editText.inputType =
+                    InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             }
 
-            val bluetoothEverySecondsPreference: EditTextPreference? = findPreference("bluetoothServiceEverySeconds")
+            val bluetoothEverySecondsPreference: EditTextPreference? =
+                findPreference("bluetoothServiceEverySeconds")
 
             bluetoothEverySecondsPreference?.setOnBindEditTextListener { editText ->
                 editText.inputType = InputType.TYPE_CLASS_NUMBER
             }
-            val webserviceEverySecondsPreference: EditTextPreference? = findPreference("webserviceServiceEverySeconds")
+            val webserviceEverySecondsPreference: EditTextPreference? =
+                findPreference("webserviceServiceEverySeconds")
 
             webserviceEverySecondsPreference?.setOnBindEditTextListener { editText ->
                 editText.inputType = InputType.TYPE_CLASS_NUMBER
             }
-            val locationEverySecondsPreference: EditTextPreference? = findPreference("locationServiceEverySeconds")
+            val locationEverySecondsPreference: EditTextPreference? =
+                findPreference("locationServiceEverySeconds")
 
             locationEverySecondsPreference?.setOnBindEditTextListener { editText ->
                 editText.inputType = InputType.TYPE_CLASS_NUMBER

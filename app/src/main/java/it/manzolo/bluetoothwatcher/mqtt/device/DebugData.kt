@@ -6,7 +6,7 @@ import it.manzolo.bluetoothwatcher.mqtt.enums.BluetoothEvents
 import it.manzolo.bluetoothwatcher.mqtt.utils.Date
 import java.math.RoundingMode
 import java.text.DecimalFormat
-import java.util.*
+import java.util.Random
 
 class DebugData {
     fun insertDebugData(context: Context?) {

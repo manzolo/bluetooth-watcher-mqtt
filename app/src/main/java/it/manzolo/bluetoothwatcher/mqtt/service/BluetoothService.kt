@@ -52,10 +52,12 @@ class BluetoothWorker(context: Context, params: WorkerParameters) : Worker(conte
 class BluetoothService : Service() {
     companion object {
         val TAG: String = BluetoothService::class.java.simpleName
-        const val ACTION_START_FOREGROUND = "it.manzolo.bluetoothwatcher.mqtt.service.action.START_FOREGROUND"
+        const val ACTION_START_FOREGROUND =
+            "it.manzolo.bluetoothwatcher.mqtt.service.action.START_FOREGROUND"
         private const val NOTIFICATION_CHANNEL_ID = "BluetoothServiceChannel"
         private const val NOTIFICATION_ID = 1
     }
+
     private fun startForegroundService() {
         Log.d(TAG, "onBluetoothStartJob")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -83,6 +85,7 @@ class BluetoothService : Service() {
         }
 
     }
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "onCreate")
@@ -108,40 +111,40 @@ class BluetoothService : Service() {
     private fun startBluetoothTask() {
         val preferences = PreferenceManager.getDefaultSharedPreferences(this.applicationContext)
         val debug = preferences.getBoolean("debugApp", false)
-            val enabled = preferences.getBoolean("enabled", true)
-            val address = preferences.getString("devices", "")
+        val enabled = preferences.getBoolean("enabled", true)
+        val address = preferences.getString("devices", "")
 
-            if (address!!.replace("\\s".toRegex(), "").isEmpty()) {
-                val intent = Intent(BluetoothEvents.ERROR)
-                // You can also include some extra data.
-                intent.putExtra("message", "No devices in settings")
-                this.applicationContext.sendBroadcast(intent)
-                Log.e(TAG, "No devices in settings")
-                if (debug) {
-                    Toast.makeText(this, "No devices in settings", Toast.LENGTH_LONG).show()
+        if (address!!.replace("\\s".toRegex(), "").isEmpty()) {
+            val intent = Intent(BluetoothEvents.ERROR)
+            // You can also include some extra data.
+            intent.putExtra("message", "No devices in settings")
+            this.applicationContext.sendBroadcast(intent)
+            Log.e(TAG, "No devices in settings")
+            if (debug) {
+                Toast.makeText(this, "No devices in settings", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            if (enabled) {
+                try {
+                    val btTask = BtTask(applicationContext)
+                    btTask.execute()
+                } catch (e: InterruptedException) {
+                    //e.printStackTrace()
+                    Log.e(TAG, e.message.toString())
+                    //Toast.makeText(this, e.message, Toast.LENGTH_LONG).show()
                 }
             } else {
-                if (enabled) {
-                    try {
-                        val btTask = BtTask(applicationContext)
-                        btTask.execute()
-                    } catch (e: InterruptedException) {
-                        //e.printStackTrace()
-                        Log.e(TAG, e.message.toString())
-                        //Toast.makeText(this, e.message, Toast.LENGTH_LONG).show()
-                    }
-                } else {
-                    val intent = Intent(BluetoothEvents.ERROR)
-                    // You can also include some extra data.
-                    intent.putExtra("message", "Service disabled in settings")
-                    this.applicationContext.sendBroadcast(intent)
-                    Log.w(TAG, "Service disabled in settings")
-                    if (debug) {
-                        Toast.makeText(this, "Service disabled in settings", Toast.LENGTH_LONG)
-                            .show()
-                    }
+                val intent = Intent(BluetoothEvents.ERROR)
+                // You can also include some extra data.
+                intent.putExtra("message", "Service disabled in settings")
+                this.applicationContext.sendBroadcast(intent)
+                Log.w(TAG, "Service disabled in settings")
+                if (debug) {
+                    Toast.makeText(this, "Service disabled in settings", Toast.LENGTH_LONG)
+                        .show()
                 }
             }
+        }
     }
 }
 

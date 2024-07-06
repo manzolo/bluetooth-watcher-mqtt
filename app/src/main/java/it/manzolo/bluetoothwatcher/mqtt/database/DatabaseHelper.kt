@@ -10,7 +10,8 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 
 class DatabaseHelper     // Costruttore
-(private val context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+    (private val context: Context) :
+    SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
     // Questo metodo viene chiamato durante la creazione del database
     override fun onCreate(database: SQLiteDatabase) {
         database.execSQL(DB_CREATE_VOLTWATCHER)
@@ -80,7 +81,9 @@ class DatabaseHelper     // Costruttore
         private const val DATABASE_VERSION = 2
 
         // Lo statement SQL di creazione del database
-        private const val DB_CREATE_VOLTWATCHER = "create table voltwatcher (_id integer primary key autoincrement, device text not null, data text not null, volts text not null, temps text not null, longitude text not null, latitude text not null, detectorbattery integer ,sent integer);"
-        private const val DB_CREATE_LOG = "create table log (_id integer primary key autoincrement, data text not null, message text not null, type text);"
+        private const val DB_CREATE_VOLTWATCHER =
+            "create table voltwatcher (_id integer primary key autoincrement, device text not null, data text not null, volts text not null, temps text not null, longitude text not null, latitude text not null, detectorbattery integer ,sent integer);"
+        private const val DB_CREATE_LOG =
+            "create table log (_id integer primary key autoincrement, data text not null, message text not null, type text);"
     }
 }
