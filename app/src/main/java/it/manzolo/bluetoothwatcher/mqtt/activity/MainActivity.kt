@@ -116,16 +116,16 @@ class MainActivity : AppCompatActivity() {
     private val requestEnableBluetooth =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                // granted
+                Log.d("MainActivity", "Bluetooth enabled")
             } else {
-                // denied
+                Log.d("MainActivity", "Bluetooth enabling denied")
             }
         }
 
     private val requestMultiplePermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             permissions.entries.forEach {
-                Log.d("MyTag", "${it.key} = ${it.value}")
+                Log.d("MainActivity", "${it.key} = ${it.value}")
             }
         }
 
@@ -167,21 +167,25 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(menuItem: MenuItem): Boolean {
         return when (menuItem.itemId) {
             R.id.action_settings -> {
+                Log.d("MainActivity", "Settings selected")
                 startActivity(Intent(this, SettingsActivity::class.java))
                 true
             }
 
             R.id.action_trigger_bluetooth_service -> {
+                Log.d("MainActivity", "Trigger Bluetooth service selected")
                 startService(Intent(this, BluetoothService::class.java))
                 true
             }
 
             R.id.action_trigger_mqtt_discovery_service -> {
+                Log.d("MainActivity", "Trigger MQTT Discovery service selected")
                 startService(Intent(this, DiscoveryService::class.java))
                 true
             }
 
             R.id.action_trigger_location_service -> {
+                Log.d("MainActivity", "Trigger Location service selected")
                 startService(Intent(this, LocationService::class.java))
                 true
             }
