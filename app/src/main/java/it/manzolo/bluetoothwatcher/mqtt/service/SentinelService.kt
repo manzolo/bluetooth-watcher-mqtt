@@ -1,11 +1,17 @@
 package it.manzolo.bluetoothwatcher.mqtt.service
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import androidx.preference.PreferenceManager
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Worker
+import androidx.work.WorkerParameters
 import it.manzolo.bluetoothwatcher.mqtt.enums.MqttEvents
+import java.util.concurrent.TimeUnit
 
 
 class SentinelService : Service() {
@@ -14,7 +20,26 @@ class SentinelService : Service() {
         val TAG: String = SentinelService::class.java.simpleName
 
     }
+    class SentinelWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+        override fun doWork(): Result {
+            Log.d(TAG, "doWork called")
 
+            // Avvia il servizio come foreground service
+            val intent = Intent(applicationContext, SentinelService::class.java)
+            intent.action = LocationService.ACTION_START_FOREGROUND
+            applicationContext.startForegroundService(intent)
+
+            // Programma il prossimo lavoro
+            val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+            val seconds = 60L
+            val workRequest = OneTimeWorkRequestBuilder<LocationWorker>()
+                .setInitialDelay(seconds, TimeUnit.SECONDS)
+                .build()
+            WorkManager.getInstance(applicationContext).enqueue(workRequest)
+
+            return Result.success()
+        }
+    }
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }

@@ -41,8 +41,9 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 0
         private const val MAX_LOG_ITEMS = 16
+        val TAG: String = MainActivity::class.toString()
 
-        // Costanti per le autorizzazioni
+            // Costanti per le autorizzazioni
         private val PERMISSIONS = arrayOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -116,16 +117,16 @@ class MainActivity : AppCompatActivity() {
     private val requestEnableBluetooth =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                Log.d("MainActivity", "Bluetooth enabled")
+                Log.d(TAG, "Bluetooth enabled")
             } else {
-                Log.d("MainActivity", "Bluetooth enabling denied")
+                Log.d(TAG, "Bluetooth enabling denied")
             }
         }
 
     private val requestMultiplePermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             permissions.entries.forEach {
-                Log.d("MainActivity", "${it.key} = ${it.value}")
+                Log.d(TAG, "${it.key} = ${it.value}")
             }
         }
 
@@ -167,25 +168,25 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(menuItem: MenuItem): Boolean {
         return when (menuItem.itemId) {
             R.id.action_settings -> {
-                Log.d("MainActivity", "Settings selected")
+                Log.d(TAG, "Settings selected")
                 startActivity(Intent(this, SettingsActivity::class.java))
                 true
             }
 
             R.id.action_trigger_bluetooth_service -> {
-                Log.d("MainActivity", "Trigger Bluetooth service selected")
+                Log.d(TAG, "Trigger Bluetooth service selected")
                 startService(Intent(this, BluetoothService::class.java))
                 true
             }
 
             R.id.action_trigger_mqtt_discovery_service -> {
-                Log.d("MainActivity", "Trigger MQTT Discovery service selected")
+                Log.d(TAG, "Trigger MQTT Discovery service selected")
                 startService(Intent(this, DiscoveryService::class.java))
                 true
             }
 
             R.id.action_trigger_location_service -> {
-                Log.d("MainActivity", "Trigger Location service selected")
+                Log.d(TAG, "Trigger Location service selected")
                 startService(Intent(this, LocationService::class.java))
                 true
             }

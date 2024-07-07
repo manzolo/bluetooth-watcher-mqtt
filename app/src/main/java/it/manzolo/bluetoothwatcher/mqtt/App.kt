@@ -25,6 +25,9 @@ class App : Application() {
             "it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker"
         private const val LOCATION_WORKER_TAG =
             "it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker"
+        private const val SENTINEL_WORKER_TAG =
+            "it.manzolo.bluetoothwatcher.mqtt.service.SentinelWorker"
+
 
         fun getHandlers(): ArrayList<HandlerList> {
             return handlers
@@ -33,7 +36,7 @@ class App : Application() {
         fun cancelAllWorkers(context: Context) {
             WorkManager.getInstance(context).cancelAllWorkByTag(BLUETOOTH_WORKER_TAG)
             WorkManager.getInstance(context).cancelAllWorkByTag(LOCATION_WORKER_TAG)
-            //WorkManager.getInstance(context).cancelAllWorkByTag(SENTINEL_WORKER_TAG)
+            WorkManager.getInstance(context).cancelAllWorkByTag(SENTINEL_WORKER_TAG)
         }
 
         private val handlers: ArrayList<HandlerList> = ArrayList()
@@ -53,11 +56,26 @@ class App : Application() {
         }
 
         fun scheduleSentinelService(context: Context) {
+            val seconds = 60L
             val intent = Intent(MainEvents.BROADCAST)
-            intent.putExtra("message", "Start sentinel service every 60 seconds")
+            intent.putExtra("message", "Start sentinel service every $seconds seconds")
             intent.putExtra("type", MainEvents.INFO)
             context.sendBroadcast(intent)
-            cron(context, SentinelService::class.java, "60")
+
+            // Cancel any existing work with the same tag before enqueuing new work
+            WorkManager.getInstance(context).cancelAllWorkByTag(SENTINEL_WORKER_TAG)
+
+                val workRequest = OneTimeWorkRequestBuilder<SentinelService.SentinelWorker>()
+                    .setInitialDelay(seconds, TimeUnit.SECONDS)
+                    .addTag(SENTINEL_WORKER_TAG)
+                    .build()
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    SENTINEL_WORKER_TAG,
+                    ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
+
+
         }
 
         fun scheduleBluetoothService(context: Context) {

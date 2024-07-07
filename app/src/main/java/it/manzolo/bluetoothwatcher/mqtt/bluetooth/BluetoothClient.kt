@@ -256,7 +256,7 @@ class BluetoothClient(private val context: Context, private val deviceAddress: S
 
 
     companion object {
-        const val TAG: String = "BluetoothClient"
+        val TAG: String = BluetoothClient::class.toString()
         private val UUID_SERIAL_PORT_SERVICE: UUID =
             UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         private const val BUFFER_LENGTH = 130

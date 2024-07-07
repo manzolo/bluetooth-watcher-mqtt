@@ -54,6 +54,7 @@ class LocationService : Service() {
         private const val NOTIFICATION_ID = 2
         const val ACTION_START_FOREGROUND =
             "it.manzolo.bluetoothwatcher.mqtt.service.action.START_FOREGROUND"
+        val TAG: String = LocationService::class.java.simpleName
     }
 
     private var mLocationManager: LocationManager? = null
@@ -85,14 +86,14 @@ class LocationService : Service() {
                 mLocationListeners[0]
             )
         } catch (ex: SecurityException) {
-            Log.e("LocationService", "Location permission error", ex)
+            Log.e(TAG, "Location permission error", ex)
         } catch (ex: IllegalArgumentException) {
-            Log.e("LocationService", "Provider does not exist " + ex.message)
+            Log.e(TAG, "Provider does not exist " + ex.message)
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("LocationService", "onStartCommand called")
+        Log.d(TAG, "onStartCommand called")
         if (intent?.action == ACTION_START_FOREGROUND) {
             startForegroundService()
         }
@@ -106,7 +107,7 @@ class LocationService : Service() {
                 try {
                     it.removeUpdates(listener)
                 } catch (ex: Exception) {
-                    Log.e("LocationService", "Failed to remove location listeners", ex)
+                    Log.e(TAG, "Failed to remove location listeners", ex)
                 }
             }
         }
@@ -151,7 +152,7 @@ class LocationService : Service() {
             }
 
             Log.d(
-                "LocationService",
+                TAG,
                 "Location Changed: ${location.latitude}, ${location.longitude}"
             )
             val intent = Intent(LocationEvents.LOCATION_CHANGED).apply {

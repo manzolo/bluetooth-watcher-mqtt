@@ -27,7 +27,7 @@ class SettingsActivity : AppCompatActivity() {
 
     class SettingsFragment : PreferenceFragmentCompat(), SharedPreferences.OnSharedPreferenceChangeListener {
 
-        private val TAG = "SettingsFragment"
+        val TAG: String = SettingsFragment::class.toString()
 
         private fun serviceEnabled(enabled: Boolean) {
             val intent = Intent(MainEvents.BROADCAST)
