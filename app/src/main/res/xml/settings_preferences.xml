@@ -14,69 +14,63 @@
   ~ limitations under the License.
   -->
 
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <PreferenceCategory app:title="Mqtt">
+    <PreferenceCategory android:title="Mqtt">
         <EditTextPreference
-            app:dialogTitle="Enter a valid url"
-            app:key="mqttUrl"
-            app:summary="Enter mqtt url"
-            app:title="Mqtt url" />
+            android:dialogTitle="Enter a valid url"
+            android:key="mqttUrl"
+            android:summary="Enter mqtt url"
+            android:title="Mqtt url" />
         <EditTextPreference
-            app:dialogTitle="Enter a valid Port"
-            app:key="mqttPort"
-            app:summary="Enter mqtt port"
-            app:title="Mqtt port" />
+            android:dialogTitle="Enter a valid Port"
+            android:key="mqttPort"
+            android:summary="Enter mqtt port"
+            android:title="Mqtt port" />
         <EditTextPreference
-            app:dialogTitle="Enter username"
-            app:key="mqttUsername"
-            app:summary="Enter mqtt username"
-            app:title="Mqtt username" />
+            android:dialogTitle="Enter username"
+            android:key="mqttUsername"
+            android:summary="Enter mqtt username"
+            android:title="Mqtt username" />
         <EditTextPreference
-            app:dialogTitle="Enter password"
-            app:key="mqttPassword"
-            app:summary="Enter mqtt password"
-            app:title="Mqtt password" />
-
+            android:dialogTitle="Enter password"
+            android:key="mqttPassword"
+            android:summary="Enter mqtt password"
+            android:title="Mqtt password" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Device">
+    <PreferenceCategory android:title="Device">
         <EditTextPreference
-            app:dialogTitle="Select devices address"
-            app:key="devices"
-            app:summary="Select device to watch, comma separated values"
-            app:title="Devices address" />
-
+            android:dialogTitle="Select devices address"
+            android:key="devices"
+            android:summary="Select device to watch, comma separated values"
+            android:title="Devices address" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Cron">
+    <PreferenceCategory android:title="Cron">
         <EditTextPreference
-            app:dialogTitle="Select duration"
-            app:key="@string/bluetoothServiceEverySeconds"
-            app:summary="Set every seconds bluetooth service start"
-            app:title="Bluetooth scan" />
-
+            android:dialogTitle="Select duration"
+            android:key="bluetoothServiceEverySeconds"
+            android:summary="Set every seconds bluetooth service start"
+            android:title="Bluetooth scan" />
         <EditTextPreference
-            app:dialogTitle="Select duration"
-            app:key="@string/locationServiceEverySeconds"
-            app:summary="Set every seconds location service start"
-            app:title="Location" />
-
+            android:dialogTitle="Select duration"
+            android:key="locationServiceEverySeconds"
+            android:summary="Set every seconds location service start"
+            android:title="Location" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Switch">
-
+    <PreferenceCategory android:title="Switch">
         <SwitchPreferenceCompat
-            app:defaultValue="true"
-            app:key="@string/enabledSetting"
-            app:summary="Click to switch on or off"
-            app:title="Service enabled" />
+            android:defaultValue="true"
+            android:key="enabledSetting"
+            android:summary="Click to switch on or off"
+            android:title="Service enabled" />
         <SwitchPreferenceCompat
-            app:defaultValue="false"
-            app:key="@string/debugApp"
-            app:summary="Click to switch on or off"
-            app:title="Debug" />
-
+            android:defaultValue="false"
+            android:key="debugApp"
+            android:summary="Click to switch on or off"
+            android:title="Debug" />
     </PreferenceCategory>
 
 </PreferenceScreen>

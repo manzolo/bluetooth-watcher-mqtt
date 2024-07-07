@@ -4,14 +4,14 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.InputType
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.SwitchPreferenceCompat
 import it.manzolo.bluetoothwatcher.mqtt.App
 import it.manzolo.bluetoothwatcher.mqtt.R
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
-import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothService
-import it.manzolo.bluetoothwatcher.mqtt.service.LocationService
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -23,110 +23,84 @@ class SettingsActivity : AppCompatActivity() {
             .replace(R.id.settings, SettingsFragment())
             .commit()
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
     }
 
-    class SettingsFragment : PreferenceFragmentCompat(),
-        SharedPreferences.OnSharedPreferenceChangeListener {
+    class SettingsFragment : PreferenceFragmentCompat(), SharedPreferences.OnSharedPreferenceChangeListener {
+
+        private val TAG = "SettingsFragment"
+
         private fun serviceEnabled(enabled: Boolean) {
             val intent = Intent(MainEvents.BROADCAST)
+            Log.d(TAG, "Service enabled: $enabled")
 
             if (enabled) {
-                this.context?.let { App.scheduleBluetoothService(it) }
-                this.context?.let { App.scheduleLocationService(it) }
+                context?.let {
+                    Log.d(TAG, "Canceling all workers and scheduling services")
+                    App.cancelAllWorkers(it)
+                    App.scheduleBluetoothService(it)
+                    App.scheduleLocationService(it)
+                }
 
                 intent.putExtra("message", "Services have been started from settings")
                 intent.putExtra("type", MainEvents.INFO)
-                //bluetoothService?.handler?.postDelayed(bluetoothService.runnable, frequencyBluetoothService);
             } else {
-                val handlersList = App.getHandlers()
-                val bluetoothService = App.findHandler(BluetoothService::class.java, handlersList)
-                val locationService = App.findHandler(LocationService::class.java, handlersList)
-
-                bluetoothService?.handler?.removeCallbacks(bluetoothService.runnable)
-                locationService?.handler?.removeCallbacks(locationService.runnable)
-
-                handlersList.clear()
+                context?.let {
+                    Log.d(TAG, "Canceling all workers")
+                    App.cancelAllWorkers(it)
+                }
 
                 intent.putExtra("message", "Services have been stopped from settings")
                 intent.putExtra("type", MainEvents.INFO)
             }
-            context?.let { this.context?.sendBroadcast(intent) }
-
+            context?.sendBroadcast(intent)
+            Log.d(TAG, "Broadcast sent: ${intent.extras}")
         }
 
         override fun onResume() {
             super.onResume()
+            Log.d(TAG, "Registering OnSharedPreferenceChangeListener")
             preferenceScreen.sharedPreferences?.registerOnSharedPreferenceChangeListener(this)
         }
 
         override fun onPause() {
             super.onPause()
+            Log.d(TAG, "Unregistering OnSharedPreferenceChangeListener")
             preferenceScreen.sharedPreferences?.unregisterOnSharedPreferenceChangeListener(this)
         }
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.settings_preferences, rootKey)
+            Log.d(TAG, "Preferences created")
 
-            val webserviceUrlPreference: EditTextPreference? = findPreference("webserviceUrl")
+            configureEditTextPreference("mqttUrl", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
+            configureEditTextPreference("mqttPort", InputType.TYPE_CLASS_NUMBER)
+            configureEditTextPreference("mqttPassword", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+            configureEditTextPreference("bluetoothServiceEverySeconds", InputType.TYPE_CLASS_NUMBER)
+            configureEditTextPreference("locationServiceEverySeconds", InputType.TYPE_CLASS_NUMBER)
 
-            webserviceUrlPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            val enabledPreference: SwitchPreferenceCompat? = findPreference("enabledSetting")
+            enabledPreference?.let {
+                Log.d(TAG, "Initial service state: ${it.isChecked}")
+                serviceEnabled(it.isChecked)
             }
-
-            val passwordPreference: EditTextPreference? = findPreference("webservicePassword")
-
-            passwordPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType =
-                    InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            }
-
-            val bluetoothEverySecondsPreference: EditTextPreference? =
-                findPreference("bluetoothServiceEverySeconds")
-
-            bluetoothEverySecondsPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_NUMBER
-            }
-            val webserviceEverySecondsPreference: EditTextPreference? =
-                findPreference("webserviceServiceEverySeconds")
-
-            webserviceEverySecondsPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_NUMBER
-            }
-            val locationEverySecondsPreference: EditTextPreference? =
-                findPreference("locationServiceEverySeconds")
-
-            locationEverySecondsPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_NUMBER
-            }
-            val updateEverySecondsPreference: EditTextPreference? =
-                findPreference("updateServiceEverySeconds")
-
-            updateEverySecondsPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_NUMBER
-            }
-
-            val restartAppEverySecondsPreference: EditTextPreference? =
-                findPreference("restartAppServiceEverySeconds")
-
-            restartAppEverySecondsPreference?.setOnBindEditTextListener { editText ->
-                editText.inputType = InputType.TYPE_CLASS_NUMBER
-            }
-
         }
 
-        override fun onSharedPreferenceChanged(
-            sharedPreferences: SharedPreferences?,
-            key: String?
-        ) {
-            val enabled = getString(R.string.enabledSetting)
-            when (key) {
-                enabled -> if (sharedPreferences != null) {
-                    serviceEnabled(sharedPreferences.getBoolean(enabled, false))
+        private fun configureEditTextPreference(key: String, inputType: Int) {
+            val preference: EditTextPreference? = findPreference(key)
+            preference?.setOnBindEditTextListener { editText ->
+                editText.inputType = inputType
+                Log.d(TAG, "Configured EditTextPreference: $key with input type: $inputType")
+            }
+        }
+
+        override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+            if (key == "enabledSetting") {
+                sharedPreferences?.let {
+                    val enabled = it.getBoolean(key, false)
+                    Log.d(TAG, "Preference changed: $key to $enabled")
+                    serviceEnabled(enabled)
                 }
-                //else -> Log.d("Settings", "unknown key $key")
             }
         }
     }
-
 }
