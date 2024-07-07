@@ -3,8 +3,6 @@ package it.manzolo.bluetoothwatcher.mqtt
 import android.app.Application
 import android.content.Context
 import android.content.Intent
-import android.os.Handler
-import android.os.Looper
 import android.widget.Toast
 import androidx.preference.PreferenceManager
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -16,7 +14,6 @@ import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
 import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.SentinelService
-import it.manzolo.bluetoothwatcher.mqtt.utils.HandlerList
 import java.util.concurrent.TimeUnit
 
 class App : Application() {
@@ -28,31 +25,10 @@ class App : Application() {
         private const val SENTINEL_WORKER_TAG =
             "it.manzolo.bluetoothwatcher.mqtt.service.SentinelWorker"
 
-
-        fun getHandlers(): ArrayList<HandlerList> {
-            return handlers
-        }
-
         fun cancelAllWorkers(context: Context) {
             WorkManager.getInstance(context).cancelAllWorkByTag(BLUETOOTH_WORKER_TAG)
             WorkManager.getInstance(context).cancelAllWorkByTag(LOCATION_WORKER_TAG)
             WorkManager.getInstance(context).cancelAllWorkByTag(SENTINEL_WORKER_TAG)
-        }
-
-        private val handlers: ArrayList<HandlerList> = ArrayList()
-        private fun cron(context: Context, serviceClass: Class<*>, seconds: String) {
-            val handler = Handler(Looper.getMainLooper())
-            val frequency = seconds.toInt() * 1000.toLong() // in ms
-            val runnable = object : Runnable {
-                override fun run() {
-                    val intent = Intent(context, serviceClass)
-                    context.startService(intent)
-                    handler.postDelayed(this, frequency) //now is every 2 minutes
-                }
-            }
-            handler.postDelayed(runnable, frequency) //Every 120000 ms (2 minutes)
-            handlers.add(0, HandlerList(serviceClass, handler, runnable, frequency))
-
         }
 
         fun scheduleSentinelService(context: Context) {
@@ -65,15 +41,15 @@ class App : Application() {
             // Cancel any existing work with the same tag before enqueuing new work
             WorkManager.getInstance(context).cancelAllWorkByTag(SENTINEL_WORKER_TAG)
 
-                val workRequest = OneTimeWorkRequestBuilder<SentinelService.SentinelWorker>()
-                    .setInitialDelay(seconds, TimeUnit.SECONDS)
-                    .addTag(SENTINEL_WORKER_TAG)
-                    .build()
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    SENTINEL_WORKER_TAG,
-                    ExistingWorkPolicy.REPLACE,
-                    workRequest
-                )
+            val workRequest = OneTimeWorkRequestBuilder<SentinelService.SentinelWorker>()
+                .setInitialDelay(seconds, TimeUnit.SECONDS)
+                .addTag(SENTINEL_WORKER_TAG)
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                SENTINEL_WORKER_TAG,
+                ExistingWorkPolicy.REPLACE,
+                workRequest
+            )
 
 
         }
@@ -160,19 +136,6 @@ class App : Application() {
                 )
             }
 
-        }
-
-        fun findHandler(
-            name: Class<*>, handlers: List<HandlerList>
-        ): HandlerList? {
-            val iterator: Iterator<HandlerList> = handlers.iterator()
-            while (iterator.hasNext()) {
-                val currentHandler: HandlerList = iterator.next()
-                if (currentHandler.classname == name) {
-                    return currentHandler
-                }
-            }
-            return null
         }
     }
 }

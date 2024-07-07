@@ -30,7 +30,6 @@ class SentinelService : Service() {
             applicationContext.startForegroundService(intent)
 
             // Programma il prossimo lavoro
-            val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
             val seconds = 60L
             val workRequest = OneTimeWorkRequestBuilder<LocationWorker>()
                 .setInitialDelay(seconds, TimeUnit.SECONDS)

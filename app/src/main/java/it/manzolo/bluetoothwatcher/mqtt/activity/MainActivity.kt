@@ -195,7 +195,7 @@ class MainActivity : AppCompatActivity() {
                 showConfirmationDialog(
                     "Backup",
                     "Do you want to backup?",
-                    DialogInterface.OnClickListener { _, _ ->
+                    { _, _ ->
                         val db = DatabaseHelper(applicationContext)
                         db.backup()
                     })
@@ -206,7 +206,7 @@ class MainActivity : AppCompatActivity() {
                 showConfirmationDialog(
                     "Restore",
                     "Do you want to restore?",
-                    DialogInterface.OnClickListener { _, _ ->
+                    { _, _ ->
                         val db = DatabaseHelper(applicationContext)
                         db.restore()
                     })
@@ -249,34 +249,34 @@ class MainActivity : AppCompatActivity() {
 
     private val localBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
-            intent?.let { intent ->
-                when (intent.action) {
+            intent?.let { localIntent ->
+                when (localIntent.action) {
                     MainEvents.BROADCAST, MainEvents.BROADCAST_LOG -> captureLog(
-                        intent.getStringExtra("message")!!,
-                        intent.getStringExtra("type")!!
+                        localIntent.getStringExtra("message")!!,
+                        localIntent.getStringExtra("type")!!
                     )
 
                     MainEvents.INFO, MqttEvents.INFO ->
-                        captureLog(intent.getStringExtra("message")!!, MainEvents.INFO)
+                        captureLog(localIntent.getStringExtra("message")!!, MainEvents.INFO)
 
                     MainEvents.ERROR, BluetoothEvents.ERROR, MqttEvents.ERROR ->
-                        captureLog(intent.getStringExtra("message")!!, MainEvents.ERROR)
+                        captureLog(localIntent.getStringExtra("message")!!, MainEvents.ERROR)
 
                     MqttEvents.DATA_SENT -> captureLog(
-                        "Data sent ${intent.getStringExtra("message")}",
+                        "Data sent ${localIntent.getStringExtra("message")}",
                         MainEvents.INFO
                     )
 
                     LocationEvents.LOCATION_CHANGED -> captureLog(
                         "Obtain longitude: ${
-                            intent.getStringExtra(
+                            localIntent.getStringExtra(
                                 "longitude"
                             )
-                        } latitude: ${intent.getStringExtra("latitude")}", MainEvents.INFO
+                        } latitude: ${localIntent.getStringExtra("latitude")}", MainEvents.INFO
                     )
 
                     DatabaseEvents.ERROR -> captureLog(
-                        intent.getStringExtra("message")!!,
+                        localIntent.getStringExtra("message")!!,
                         MainEvents.ERROR
                     )
 
@@ -286,7 +286,7 @@ class MainActivity : AppCompatActivity() {
                         ) {
                             Toast.makeText(
                                 applicationContext,
-                                intent.getStringExtra("message"),
+                                localIntent.getStringExtra("message"),
                                 Toast.LENGTH_LONG
                             ).show()
                         }

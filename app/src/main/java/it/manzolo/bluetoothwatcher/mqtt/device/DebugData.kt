@@ -35,7 +35,7 @@ class DebugData {
             )
             context!!.sendBroadcast(intentBt)
 
-            val intentBluetoothCloseConnection = Intent(BluetoothEvents.CLOSECONNECTION)
+            val intentBluetoothCloseConnection = Intent(BluetoothEvents.CONNECTION_CLOSE)
             context.sendBroadcast(intentBluetoothCloseConnection)
         }
     }

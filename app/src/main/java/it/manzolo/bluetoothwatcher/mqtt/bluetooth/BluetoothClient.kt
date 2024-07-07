@@ -79,7 +79,7 @@ class BluetoothClient(private val context: Context, private val deviceAddress: S
     init {
         context.registerReceiver(
             closeBluetoothReceiver,
-            IntentFilter(BluetoothEvents.CLOSECONNECTION)
+            IntentFilter(BluetoothEvents.CONNECTION_CLOSE)
         )
     }
 
@@ -248,7 +248,7 @@ class BluetoothClient(private val context: Context, private val deviceAddress: S
             )
             context.sendBroadcast(intentBt)
 
-            context.sendBroadcast(Intent(BluetoothEvents.CLOSECONNECTION))
+            context.sendBroadcast(Intent(BluetoothEvents.CONNECTION_CLOSE))
         } catch (e: Exception) {
             Log.e(TAG, "Error processing buffer", e)
         }

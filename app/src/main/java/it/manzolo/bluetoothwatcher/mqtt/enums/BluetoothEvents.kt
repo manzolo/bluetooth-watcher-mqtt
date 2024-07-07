@@ -4,6 +4,6 @@ interface BluetoothEvents {
     companion object {
         const val ERROR = "Connection error"
         const val DATA_RETRIEVED = "Data retrieved"
-        const val CLOSECONNECTION = "Close connection"
+        const val CONNECTION_CLOSE = "Close connection"
     }
 }
