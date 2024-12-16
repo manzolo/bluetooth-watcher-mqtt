@@ -3,17 +3,17 @@ package it.manzolo.bluetoothwatcher.mqtt.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import it.manzolo.bluetoothwatcher.mqtt.App
+import it.manzolo.bluetoothwatcher.mqtt.activity.MainActivity
 
-class BootCompletedReceiver : BroadcastReceiver() {
-    private var context: Context? = null
-    private var arg1: Intent? = null
-    override fun onReceive(context: Context, arg1: Intent) {
-        this.context = context
-        this.arg1 = arg1
-        Log.w("boot_broadcast_poc", "starting service")
-        val pm = context.packageManager
-        val launchIntent = pm.getLaunchIntentForPackage("it.manzolo.bluetoothwatcher.mqtt")
-        context.startActivity(launchIntent)
+class BootBroadcastReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent?) {
+        if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
+            // Quando il dispositivo si avvia, avvia i servizi necessari
+            val launchIntent = Intent(context, MainActivity::class.java)
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Necessario per avviare una Activity da un BroadcastReceiver
+            context.startActivity(launchIntent)
+        }
     }
 }
+

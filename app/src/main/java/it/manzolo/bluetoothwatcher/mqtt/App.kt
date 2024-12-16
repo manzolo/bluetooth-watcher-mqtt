@@ -3,6 +3,7 @@ package it.manzolo.bluetoothwatcher.mqtt
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.widget.Toast
 import androidx.preference.PreferenceManager
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -11,6 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import it.manzolo.bluetoothwatcher.mqtt.enums.MainEvents
+import it.manzolo.bluetoothwatcher.mqtt.receiver.BootBroadcastReceiver
 import it.manzolo.bluetoothwatcher.mqtt.service.BluetoothWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.LocationWorker
 import it.manzolo.bluetoothwatcher.mqtt.service.SentinelService
@@ -138,4 +140,5 @@ class App : Application() {
 
         }
     }
+
 }
