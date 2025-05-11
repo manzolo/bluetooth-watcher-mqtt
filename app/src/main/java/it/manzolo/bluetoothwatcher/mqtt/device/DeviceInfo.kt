@@ -2,6 +2,8 @@ package it.manzolo.bluetoothwatcher.mqtt.device
 
 import android.util.Log
 import it.manzolo.bluetoothwatcher.mqtt.bluetooth.Struct
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.*
 
 class DeviceInfo(val address: String, private val data: ByteArray) {
@@ -22,11 +24,11 @@ class DeviceInfo(val address: String, private val data: ByteArray) {
         if (byteArrayOf(0x09.toByte(), 0x63.toByte()).contentEquals(header)) {
             val unpackedVolts = struct.unpack("!H", Arrays.copyOfRange(data, 2, 4))
             voltsShort = unpackedVolts[0].toShort() // Explicitly convert Long to Short
-            volt = (voltsShort / 100.0).toString().toDouble()
+            volt = BigDecimal(voltsShort / 100.0).setScale(2, RoundingMode.HALF_UP).toDouble()
         } else if (byteArrayOf(0x09.toByte(), 0xc9.toByte()).contentEquals(header)) {
             val unpackedVolts = struct.unpack("!H", Arrays.copyOfRange(data, 2, 4))
             voltsShort = unpackedVolts[0].toShort() // Explicitly convert Long to Short
-            volt = (voltsShort / 1000.0).toString().toDouble()
+            volt = BigDecimal(voltsShort / 1000.0).setScale(2, RoundingMode.HALF_UP).toDouble()
         } else {
             throw Exception("Unknown header: ${header.contentToString()} for device $address")
         }
